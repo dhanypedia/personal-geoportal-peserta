@@ -6,9 +6,13 @@ import {
   Avatar, Chip, IconButton, Tooltip, CircularProgress, Alert,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
 import LayersIcon from "@mui/icons-material/Layers";
+import { Download, Visibility } from "@mui/icons-material";
 
-const ListData2D = ({ search, onDelete }) => {
+// Tabel katalog layer 2D. Baris viewer hanya boleh melihat, sedangkan admin
+// dan super_admin mendapat tombol ubah dan hapus.
+const TableData2D = ({ search, onDelete, onUpdate, onPreview, onDownload }) => {
   const { data: session, status } = useSession();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +75,8 @@ const ListData2D = ({ search, onDelete }) => {
   if (error) {
     return <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>;
   }
+
+  const bolehUbah = session?.user?.role !== "viewer";
 
   return (
     <Table>
@@ -159,11 +165,30 @@ const ListData2D = ({ search, onDelete }) => {
               </Typography>
             </TableCell>
             <TableCell align="right">
-              <Tooltip title="Hapus layer">
-                <IconButton size="small" onClick={() => onDelete(row)} sx={{ color: "#DC2626" }}>
-                  <DeleteIcon fontSize="small" />
+              {bolehUbah && (
+                <Tooltip title="Ubah layer">
+                  <IconButton size="small" onClick={() => onUpdate(row)} sx={{ color: "#4F46E5" }}>
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              <Tooltip title="Unduh layer">
+                <IconButton size="small" onClick={() => onDownload(row)} sx={{ color: "#059669" }}>
+                  <Download fontSize="small" />
                 </IconButton>
               </Tooltip>
+              <Tooltip title="Pratinjau layer">
+                <IconButton size="small" onClick={() => onPreview(row)} sx={{ color: "#4F46E5" }}>
+                  <Visibility fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              {bolehUbah && (
+                <Tooltip title="Hapus layer">
+                  <IconButton size="small" onClick={() => onDelete(row)} sx={{ color: "#DC2626" }}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
             </TableCell>
           </TableRow>
         ))}
@@ -172,4 +197,4 @@ const ListData2D = ({ search, onDelete }) => {
   );
 };
 
-export default ListData2D;
+export default TableData2D;

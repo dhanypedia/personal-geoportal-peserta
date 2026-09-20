@@ -34,6 +34,10 @@ export const authOptions = {
         async jwt({ token, user }) {
             // 1. Saat pertama kali login
             if (user) {
+                // token.id dipakai callback session di bawah untuk mengisi
+                // session.user.id. Tanpa baris ini, nilainya undefined dan
+                // halaman profil kehilangan identitas pengguna.
+                token.id = user.user_id;
                 token.user_id = user.user_id;
                 token.email = user.email;
                 token.role = user.role;

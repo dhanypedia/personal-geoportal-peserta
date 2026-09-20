@@ -28,6 +28,7 @@ import { Close, Visibility } from "@mui/icons-material";
 import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
 import HapusData from "./HapusData";
+import UpdateData from "./UpdateData";
 
 const PreviewCesiumModal = dynamic(
   () => import("./PreviewCesiumModal"),
@@ -70,6 +71,7 @@ export default function KatalogData3D() {
   const [openPreview, setOpenPreview] = useState(false);
   const [openAdd, setOpenAdd] = useState(false);
   const [openDelete, setOpenDelete] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
   const [form, setForm] = useState(DEFAULT_FORM);
 
   const session = useSession();
@@ -141,6 +143,16 @@ export default function KatalogData3D() {
     setOpenDelete(false)
     setFocusItem(null);
   }
+
+  const handleOpenEdit = (item) => {
+    setOpenEdit(true);
+    setFocusItem(item);
+  };
+
+  const handleCloseEdit = () => {
+    setOpenEdit(false);
+    setFocusItem(null);
+  };
 
   return (
     <Box sx={{ p: 1 }}>
@@ -297,7 +309,7 @@ export default function KatalogData3D() {
                     {session?.data?.user?.role !== "viewer" ? (
                       <>
                         <Tooltip title="Edit Metadata">
-                          <IconButton size="small" color="info">
+                          <IconButton size="small" color="info" onClick={() => handleOpenEdit(row)}>
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -431,6 +443,32 @@ export default function KatalogData3D() {
             accessToken={session?.data?.accessToken}
             getData={getData}
             handleCloseDelete={handleCloseDelete}
+          />
+        </Box>
+      </Modal>
+
+      {/* Modal Edit Data */}
+      <Modal open={openEdit} onClose={handleCloseEdit}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 600, md: 700 },
+            bgcolor: "#fff",
+            color: "#1E1E2D",
+            borderRadius: 3,
+            boxShadow: 24,
+            p: 3,
+            outline: "none",
+          }}
+        >
+          <UpdateData
+            item={focusItem}
+            accessToken={session?.data?.accessToken}
+            getData={getData}
+            handleCloseEdit={handleCloseEdit}
           />
         </Box>
       </Modal>
