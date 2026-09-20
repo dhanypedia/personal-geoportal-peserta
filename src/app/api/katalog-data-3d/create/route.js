@@ -34,8 +34,24 @@ export async function POST(request) {
         // 2. Generate UUID terlebih dahulu
         const data_3d_id = crypto.randomUUID();
 
-        // Dapatkan ekstensi asli dari file (misal: .glb atau .zip)
-        const fileExtension = path.extname(file.name) || ".glb";
+        // Dapatkan ekstensi asli dari file
+        const fileExtension = path.extname(file.name).toLowerCase();
+
+        // Hanya dua format ini yang dapat ditampilkan. Berkas lain tersimpan
+        // tetapi tidak akan pernah bisa dibuka, jadi ditolak lebih dahulu.
+        const TIPE_DIDUKUNG = [".glb", ".ply"];
+        if (!TIPE_DIDUKUNG.includes(fileExtension)) {
+            return NextResponse.json(
+                {
+                    message:
+                        `Format ${fileExtension || "(tanpa ekstensi)"} tidak didukung. ` +
+                        "Gunakan .glb untuk model 3D atau .ply untuk Gaussian Splat.",
+                },
+                { status: 400 }
+            );
+        }
+
+        const tipeFile = fileExtension.replace(".", "");
 
         // Buat nama file berdasarkan UUID semata
         const filename = `${data_3d_id}${fileExtension}`;
@@ -69,6 +85,7 @@ export async function POST(request) {
                 pitch: parseFloat(pitch),
                 roll: parseFloat(roll),
                 scale: parseFloat(scale),
+                tipe_file: tipeFile,
                 author: payload.id,
             },
         });

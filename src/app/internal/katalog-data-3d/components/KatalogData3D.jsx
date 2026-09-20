@@ -34,6 +34,14 @@ const PreviewCesiumModal = dynamic(
   { ssr: false }
 );
 
+// Berkas .ply memakai penampil Gaussian Splat, bukan Cesium. Keduanya diimpor
+// saat dibuka supaya pustaka three.js tidak membebani halaman bagi peserta
+// yang hanya memakai model .glb.
+const PreviewPlyModal = dynamic(
+  () => import("./PreviewPlyModal"),
+  { ssr: false }
+);
+
 // Nilai awal formulir. Seluruh kolom dideklarasikan di sini supaya tidak ada
 // yang bernilai undefined, dan supaya kolom orientasi model tidak tertinggal.
 //
@@ -379,11 +387,19 @@ export default function KatalogData3D() {
               <Close />
             </IconButton>
           </Box>
-          <PreviewCesiumModal
-            openPreview={openPreview}
-            onClose={handleClosePreview}
-            item={focusItem}
-          />
+          {focusItem?.tipe_file === "ply" ? (
+            <PreviewPlyModal
+              openPreview={openPreview}
+              item={focusItem}
+              handleClosePreview={handleClosePreview}
+            />
+          ) : (
+            <PreviewCesiumModal
+              openPreview={openPreview}
+              onClose={handleClosePreview}
+              item={focusItem}
+            />
+          )}
         </Box>
       </Modal>
 
