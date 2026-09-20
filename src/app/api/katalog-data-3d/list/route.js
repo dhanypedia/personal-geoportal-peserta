@@ -24,6 +24,10 @@ export async function GET(request) {
                 // model. Sebelumnya nilai itu ditulis tetap di frontend,
                 // sehingga nilai yang tersimpan tidak pernah terpakai.
                 scale: true,
+                // tipe_file dipakai tabel katalog untuk memilih penampil:
+                // .ply dibuka dengan penampil Gaussian Splat, .glb dengan
+                // Cesium. Tanpa kolom ini, berkas .ply selalu dibuka Cesium.
+                tipe_file: true,
                 users: {
                     select: {
                         email: true

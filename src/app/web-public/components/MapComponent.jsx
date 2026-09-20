@@ -10,6 +10,7 @@ import Search from "../peta/widgets/Search";
 import FullScreen from "../peta/widgets/FullScreen";
 import Bahasa from "../peta/widgets/Bahasa";
 import Zoom from "../peta/widgets/Zoom";
+import Katalog from "../peta/widgets/Katalog";
 
 const HOME_COORDS = { lat: -6.1754, lng: 106.8272, zoom: 16 };
 
@@ -36,6 +37,9 @@ export default function MapComponent() {
   const tileLayerRef = useRef(null);
   const markerRef = useRef(null);
   const userMarkerRef = useRef(null);
+  // Layer katalog yang sedang dinyalakan disimpan di sini supaya dapat
+  // dilepas satu per satu dari panel katalog.
+  const addedLayersRef = useRef({});
 
   const [activeBasemap, setActiveBasemap] = useState(DEFAULT_BASEMAP);
   const [bahasa, setBahasa] = useState("ID");
@@ -143,6 +147,18 @@ export default function MapComponent() {
         />
         <Zoom map={map} buttonSize={BUTTON_SIZE} />
         
+      </Box>
+
+      {/* Tombol dan panel katalog layer publik, di sisi kiri atas peta. */}
+      <Box
+        sx={{
+          position: "absolute",
+          top: { xs: 88, md: 100 },
+          left: { xs: 12, md: 32 },
+          zIndex: 1000,
+        }}
+      >
+        <Katalog map={map} addedLayersRef={addedLayersRef} buttonSize={BUTTON_SIZE} />
       </Box>
     </Box>
   );

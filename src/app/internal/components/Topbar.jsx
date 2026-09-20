@@ -25,8 +25,10 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
 
 import { signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function Topbar() {
+  const router = useRouter();
   const { data: session } = useSession();
   const [anchorEl, setAnchorEl] = useState(null);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -225,7 +227,7 @@ export default function Topbar() {
 
             <Divider />
 
-            <MenuItem onClick={handleCloseMenu} sx={{ color: "#1E293B" }}>
+            <MenuItem onClick={() => router.push("/internal/profile")} sx={{ color: "#1E293B" }}>
               <ListItemIcon>
                 <PersonIcon fontSize="small" sx={{ color: "#1E293B" }} />
               </ListItemIcon>

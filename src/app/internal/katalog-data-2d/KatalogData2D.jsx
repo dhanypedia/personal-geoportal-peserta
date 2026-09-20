@@ -10,12 +10,17 @@ import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
 import Swal from "sweetalert2";
 import TambahData2D from "./TambahData2D";
-import ListData2D from "./ListData2D";
+import UpdateData2D from "./UpdateData2D";
+import TableData2D from "./TableData2D";
+import PreviewData2D from "./PreviewData2D";
 
 export default function KatalogData2D() {
   const { data: session } = useSession();
   const [search, setSearch] = useState("");
   const [openCreate, setOpenCreate] = useState(false);
+  const [openUpdate, setOpenUpdate] = useState(false);
+  const [openPreview, setOpenPreview] = useState(false);
+  const [selectedRow, setSelectedRow] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [form, setForm] = useState({ layer_name: "", file: null, akses: "private", editable: "false" });
@@ -23,6 +28,60 @@ export default function KatalogData2D() {
   const handleOpenCreate = () => {
     setForm({ layer_name: "", file: null, akses: "private", editable: "false" });
     setOpenCreate(true);
+  };
+
+  const handleUpdate = (row) => {
+    setSelectedRow(row);
+    setOpenUpdate(true);
+  };
+
+  const handlePreview = (row) => {
+    setSelectedRow(row);
+    setOpenPreview(true);
+  };
+
+  const handleDownload = async (row) => {
+    const accessToken = session?.accessToken;
+    if (!accessToken) {
+      Swal.fire("Gagal!", "Access token tidak tersedia.", "error");
+      return;
+    }
+
+    // WFS diambil lewat proxy, bukan langsung ke GeoServer, supaya layer
+    // private yang hanya dapat dibaca ADMIN ikut terunduh.
+    const url = row.data_2d_id
+      ? `/portal/api/katalog-data-2d/proxy?type=wfs&data_2d_id=${row.data_2d_id}`
+      : row.wfs_url;
+
+    if (!url) {
+      Swal.fire("Gagal!", "URL WFS tidak tersedia untuk layer ini.", "error");
+      return;
+    }
+
+    const safeFilename = (row.layer_name || "data_layer").replace(/[:/\\?*"<>|]/g, "_");
+
+    try {
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || "Gagal mengunduh layer");
+      }
+
+      const blob = await response.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `${safeFilename}.geojson`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      Swal.fire("Gagal!", err.message, "error");
+    }
   };
 
   const handleDelete = async (row) => {
@@ -102,7 +161,14 @@ export default function KatalogData2D() {
       />
 
       <Paper sx={{ borderRadius: 4, overflow: "hidden", border: "1px solid #EEF0F4", boxShadow: "0 1px 2px rgba(16,24,40,0.06)" }}>
-        <ListData2D key={refreshKey} search={search} onDelete={handleDelete} />
+        <TableData2D
+          key={refreshKey}
+          search={search}
+          onDelete={handleDelete}
+          onUpdate={handleUpdate}
+          onPreview={handlePreview}
+          onDownload={handleDownload}
+        />
       </Paper>
 
       <Dialog
@@ -129,6 +195,32 @@ export default function KatalogData2D() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog
+        open={openUpdate}
+        onClose={() => !submitting && setOpenUpdate(false)}
+        fullWidth
+        maxWidth="sm"
+        slotProps={{ paper: { sx: { bgcolor: "#fff", color: "#1E1E2D", borderRadius: 3 } } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: "#1E1E2D" }}>Ubah Layer Data 2D</DialogTitle>
+        <DialogContent>
+          <UpdateData2D
+            row={selectedRow}
+            submitting={submitting}
+            setSubmitting={setSubmitting}
+            onClose={() => setOpenUpdate(false)}
+            onSuccess={() => setRefreshKey((k) => k + 1)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <PreviewData2D
+        open={openPreview}
+        onClose={() => setOpenPreview(false)}
+        row={selectedRow}
+        accessToken={session?.accessToken}
+      />
     </Box>
   );
 }
