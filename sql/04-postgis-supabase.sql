@@ -1,50 +1,18 @@
--- =====================================================================
--- Membuat data spasial di schema gis pada Supabase
+-- Data spasial PostGIS di Supabase. Jalankan di SQL Editor Supabase.
 --
--- Panduan basis data spasial memuat satu perintah yang benar untuk PostgreSQL lokal,
--- tetapi tidak berlaku apa adanya di Supabase:
---
+-- Panduan PostgreSQL lokal memuat satu perintah yang TIDAK berlaku di Supabase:
 --   ALTER DATABASE namadatabase SET search_path TO gis, public;
---
--- Di PostgreSQL lokal hasil "CREATE EXTENSION postgis" berada di schema
--- tempat extension itu dipasang, biasanya gis atau public. Keduanya ada di
--- search_path, sehingga QGIS menemukan semuanya.
---
--- Di Supabase, PostGIS sering berakhir di schema extensions. Begitu
--- search_path dikunci ke "gis, public", schema extensions keluar dari
--- jangkauan, dan semua nama PostGIS yang dipanggil tanpa awalan schema
--- menjadi tidak ditemukan. QGIS memanggil AddGeometryColumn tanpa awalan
--- schema, jadi layer baru gagal dibuat dan digitasi tidak bisa disimpan.
---
---   ERROR: function addgeometrycolumn(unknown, unknown, unknown, integer, unknown, integer) does not exist
---   ERROR: type "geometry" does not exist
---   ERROR: function st_srid(geometry) does not exist
---
--- Berkas ini punya empat bagian:
---
---   Bagian 1  diagnosa          hanya SELECT, tidak mengubah apa pun
---   Bagian 2  perbaikan         menyertakan schema PostGIS ke search_path
---   Bagian 3  pembersihan       menghapus wrapper rusak dari panduan lama
---   Bagian 4  uji fungsi        membuktikan jalur QGIS sudah jalan
---
--- Jalankan di SQL Editor Supabase.
--- Tidak ada meta-command psql, jadi bisa ditempel apa adanya ke SQL Editor.
---
--- Catatan: setelah Bagian 2, koneksi QGIS dan DBeaver harus ditutup lalu
--- dibuka lagi. ALTER DATABASE hanya berlaku untuk sesi baru.
--- =====================================================================
+-- Di Supabase PostGIS sering berakhir di schema extensions, sehingga begitu search_path
+-- dikunci ke "gis, public" semua nama PostGIS tanpa awalan schema tidak ditemukan. QGIS
+-- memanggil AddGeometryColumn tanpa awalan schema, jadi layer baru gagal dibuat dan
+-- digitasi tidak bisa disimpan. Setelah Bagian 2, koneksi QGIS dan DBeaver harus ditutup
+-- lalu dibuka lagi, karena ALTER DATABASE hanya berlaku untuk sesi baru.
 
 
--- =====================================================================
 -- BAGIAN 1 - DIAGNOSA
--- =====================================================================
 
--- ---------------------------------------------------------------------
--- 1.1 Di schema mana PostGIS benar-benar terpasang?
---
--- Ini akar masalahnya. Kalau hasilnya extensions sementara search_path
--- hanya "gis, public", lanjut ke Bagian 2.
--- ---------------------------------------------------------------------
+-- 1.1 Di schema mana PostGIS benar-benar terpasang? Ini akar masalahnya: kalau hasilnya
+-- extensions sementara search_path hanya "gis, public", lanjut ke Bagian 2.
 SELECT '1.1 lokasi extension' AS bagian;
 SELECT e.extname                       AS extension,
        n.nspname                       AS schema_postgis,
@@ -55,14 +23,8 @@ JOIN pg_namespace n ON n.oid = e.extnamespace
 WHERE e.extname LIKE 'postgis%'
 ORDER BY e.extname;
 
--- ---------------------------------------------------------------------
--- 1.2 search_path yang berlaku sekarang
---
--- Tiga baris menunjukkan tiga sumber yang berbeda:
---   sesi         apa yang dipakai koneksi ini sekarang
---   database     nilai dari ALTER DATABASE, berlaku untuk semua sesi baru
---   peran        nilai dari ALTER ROLE, menimpa nilai database
--- ---------------------------------------------------------------------
+-- 1.2 search_path yang berlaku sekarang, dari tiga sumber: sesi (koneksi ini), database
+-- (ALTER DATABASE, berlaku untuk sesi baru), peran (ALTER ROLE, menimpa nilai database).
 SELECT '1.2 search_path' AS bagian;
 SELECT 'sesi'     AS sumber, current_setting('search_path') AS nilai
 UNION ALL
@@ -76,15 +38,9 @@ FROM pg_db_role_setting s
 JOIN pg_roles r ON r.oid = s.setrole
 WHERE r.rolname = current_user AND s.setdatabase = 0;
 
--- ---------------------------------------------------------------------
--- 1.3 Apakah nama PostGIS bisa dipanggil tanpa awalan schema?
---
--- Inilah yang dilakukan QGIS. Kalau kedua tipe bernilai false, atau daftar
--- fungsinya kosong, perbaikan di Bagian 2 memang diperlukan.
---
--- Cara membaca: daftar schema diurutkan sesuai prioritas pencarian.
--- Fungsi addgeometrycolumn yang dipakai QGIS adalah yang paling atas.
--- ---------------------------------------------------------------------
+-- 1.3 Apakah nama PostGIS bisa dipanggil tanpa awalan schema? Inilah yang dilakukan QGIS.
+-- Kalau kedua tipe bernilai false atau daftar fungsinya kosong, perbaikan di Bagian 2 memang
+-- diperlukan. Daftar schema diurutkan sesuai prioritas pencarian.
 SELECT '1.3 nama PostGIS di jalur pencarian' AS bagian;
 SELECT to_regtype('geometry')  IS NOT NULL AS tipe_geometry_ketemu,
        to_regtype('geography') IS NOT NULL AS tipe_geography_ketemu;
@@ -97,15 +53,10 @@ WHERE p.proname = 'addgeometrycolumn'
   AND n.nspname = ANY (current_schemas(true))
 ORDER BY prioritas NULLS LAST;
 
--- ---------------------------------------------------------------------
--- 1.4 Apakah yang ada di schema gis memang tabel spasial?
---
--- format_type dipakai supaya kolom geometri tetap terbaca walaupun tipe
--- geometry sedang tidak ada di search_path.
---
--- Tabel tanpa primary key akan terbuka sebagai layer baca-saja di QGIS,
--- dan itu sebab kegagalan menyimpan yang berbeda dari masalah search_path.
--- ---------------------------------------------------------------------
+-- 1.4 Apakah yang ada di schema gis memang tabel spasial? format_type dipakai supaya kolom
+-- geometri tetap terbaca walaupun tipe geometry tidak ada di search_path. Tabel tanpa primary
+-- key akan terbuka sebagai layer baca-saja di QGIS, dan itu sebab kegagalan menyimpan yang
+-- berbeda dari masalah search_path.
 SELECT '1.4 isi schema gis' AS bagian;
 SELECT c.relname                                       AS tabel,
        COALESCE(a.attname, '-')                        AS kolom_geometri,
@@ -126,9 +77,7 @@ WHERE n.nspname = 'gis'
   AND c.relkind = 'r'
 ORDER BY c.relname;
 
--- ---------------------------------------------------------------------
 -- 1.5 Apakah peran koneksi berhak membuat tabel di schema gis?
--- ---------------------------------------------------------------------
 SELECT '1.5 hak akses schema gis' AS bagian;
 SELECT current_user                                     AS peran_koneksi,
        has_schema_privilege('gis', 'USAGE')             AS boleh_pakai,
@@ -138,15 +87,10 @@ FROM pg_namespace n
 WHERE n.nspname = 'gis';
 
 
--- =====================================================================
 -- BAGIAN 2 - PERBAIKAN
---
--- Menyusun ulang search_path: schema data tetap di depan, lalu public,
--- lalu schema tempat PostGIS benar-benar berada. Nilainya dibaca dari
--- katalog, jadi tidak perlu disesuaikan manual.
---
--- Aman dijalankan berulang. Tidak menghapus dan tidak mengubah data.
--- =====================================================================
+-- Menyusun ulang search_path: schema data, lalu public, lalu schema tempat PostGIS
+-- benar-benar berada; nilainya dibaca dari katalog. PostGIS tidak bisa dipindah schema
+-- setelah terpasang, jadi yang disesuaikan jalurnya. Aman dijalankan berulang.
 
 DO $$
 DECLARE
@@ -174,46 +118,28 @@ BEGIN
 
     EXECUTE format('ALTER DATABASE %I SET search_path TO %s', current_database(), jalur);
 
-    -- ALTER DATABASE hanya berlaku untuk sesi baru. Baris berikut menyetel
-    -- jalur yang sama untuk sesi ini juga, supaya uji di Bagian 4 langsung
-    -- mewakili keadaan setelah koneksi dibuka ulang.
+    -- ALTER DATABASE hanya berlaku untuk sesi baru, jadi jalur yang sama disetel juga
+    -- untuk sesi ini supaya uji di Bagian 4 mewakili keadaan setelah koneksi dibuka ulang.
     PERFORM set_config('search_path', jalur, false);
 
     RAISE NOTICE 'search_path database % diset ke: %', current_database(), jalur;
     RAISE NOTICE 'Tutup lalu buka lagi koneksi QGIS dan DBeaver supaya berlaku.';
 END $$;
 
--- Kalau perintah di atas ditolak dengan "must be owner of database",
--- pakai bentuk per peran berikut sebagai gantinya, lalu jalankan ulang
--- Bagian 1.2 untuk memastikan nilainya masuk:
+-- Kalau perintah di atas ditolak dengan "must be owner of database", pakai bentuk
+-- per peran berikut, lalu jalankan ulang Bagian 1.2 untuk memastikan nilainya masuk:
 --
 --   ALTER ROLE postgres IN DATABASE postgres SET search_path TO gis, public, extensions;
 
 
--- =====================================================================
 -- BAGIAN 3 - PEMBERSIHAN WRAPPER DARI MODUL PRAKTIK 8
---
--- Panduan lama meminta membuat fungsi public.addgeometrycolumn dan
--- gis.addgeometrycolumn sebagai pengganti. Baris cadangan di dalamnya
--- memanggil public.AddGeometryColumn dengan enam argumen, sementara fungsi
--- itu sendiri dideklarasikan dengan tujuh argumen tanpa nilai bawaan.
--- Panggilan enam argumen karena itu tidak pernah cocok, di mana pun PostGIS
--- dipasang, dan yang muncul di QGIS adalah pesan menyesatkan:
---
---   ERROR: function public.addgeometrycolumn(character varying, character
---          varying, character varying, integer, character varying, integer)
---          does not exist
---
--- Padahal fungsi itu ada, hanya jumlah argumennya tidak pernah cocok.
---
--- Setelah Bagian 2, fungsi PostGIS asli sudah bisa dipanggil langsung,
--- sehingga wrapper ini tidak diperlukan lagi. Menghapusnya sekaligus
--- menutup temuan P8-1: wrapper itu satu-satunya objek yang diberikan
--- GRANT EXECUTE ke PUBLIC, anon, dan authenticated.
---
--- Penjagaan pg_depend memastikan fungsi milik extension PostGIS tidak
--- pernah ikut terhapus. Yang dihapus hanya fungsi buatan sendiri.
--- =====================================================================
+-- Panduan lama menyuruh membuat public.addgeometrycolumn dan gis.addgeometrycolumn sebagai
+-- pengganti. Wrapper itu memanggil AddGeometryColumn dengan enam argumen sementara fungsi
+-- aslinya butuh tujuh, jadi panggilannya tidak pernah cocok dan QGIS hanya menampilkan
+-- "function public.addgeometrycolumn(...) does not exist". Wrapper itu juga yang diberi GRANT
+-- EXECUTE ke PUBLIC, anon, dan authenticated, dan sejak Bagian 2 fungsi PostGIS asli sudah
+-- bisa dipanggil langsung. Penjagaan pg_depend memastikan fungsi milik extension PostGIS
+-- tidak pernah ikut terhapus.
 
 DO $$
 DECLARE
@@ -229,9 +155,8 @@ BEGIN
         JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE p.proname = 'addgeometrycolumn'
           AND n.nspname IN ('public', 'gis')
-          -- Fungsi PostGIS selalu membawa argumen use_typmod. Fungsi dari
-          -- panduan lama tidak. Syarat ini mempersempit sasaran ke
-          -- fungsi yang memang dibuat mengikuti modul itu.
+          -- Fungsi PostGIS selalu membawa argumen use_typmod, fungsi dari panduan
+          -- lama tidak. Syarat ini mempersempit sasaran ke fungsi buatan sendiri.
           AND pg_get_function_identity_arguments(p.oid) NOT LIKE '%use_typmod%'
           AND NOT EXISTS (
                 SELECT 1 FROM pg_depend d
@@ -250,13 +175,9 @@ BEGIN
 END $$;
 
 
--- =====================================================================
 -- BAGIAN 4 - UJI FUNGSI
---
--- Meniru persis panggilan yang dilakukan QGIS saat membuat kolom geometri
--- di schema gis. Tabel uji dibuat lalu dihapus lagi dalam blok yang sama,
--- sehingga tidak meninggalkan sisa. Kalau gagal, pesan aslinya dicetak.
--- =====================================================================
+-- Meniru persis panggilan QGIS saat membuat kolom geometri di schema gis. Tabel uji dibuat
+-- lalu dihapus lagi dalam blok yang sama, jadi tidak meninggalkan sisa.
 
 DO $$
 DECLARE
@@ -277,42 +198,25 @@ BEGIN
     DROP TABLE IF EXISTS gis.uji_prasyarat_qgis;
 END $$;
 
--- Pemeriksaan ulang. Dua kolom harus bernilai true, dan daftar fungsi harus
--- memuat addgeometrycolumn dari schema tempat PostGIS dipasang.
+-- Pemeriksaan ulang: dua kolom harus bernilai true, dan search_path harus memuat schema
+-- tempat PostGIS dipasang.
 SELECT to_regtype('geometry')  IS NOT NULL AS tipe_geometry_ketemu,
        to_regtype('geography') IS NOT NULL AS tipe_geography_ketemu;
 
 SELECT current_setting('search_path') AS search_path_sekarang;
 
 
--- =====================================================================
--- TABEL KEPUTUSAN
---
--- Cocokkan pesan galat di QGIS dengan baris yang sesuai.
---
--- | Pesan galat                                                  | Sebab                        | Tindakan |
--- |--------------------------------------------------------------|------------------------------|----------|
--- | function addgeometrycolumn(...) does not exist               | PostGIS di luar search_path  | Bagian 2 |
--- | type "geometry" does not exist                               | sama                         | Bagian 2 |
--- | function st_srid / st_makepoint / st_astext ... does not exist| sama                        | Bagian 2 |
--- | function public.addgeometrycolumn(character varying, ...)    | wrapper panduan lama      | Bagian 2, lalu Bagian 3 |
--- |   does not exist                                               | dipanggil dengan 6 argumen   |          |
--- | permission denied for schema gis                             | peran koneksi bukan pemilik  | GRANT USAGE, CREATE ON SCHEMA gis TO <peran>; |
--- | new row violates row-level security policy                   | RLS aktif pada tabel spasial | ALTER TABLE gis.<tabel> DISABLE ROW LEVEL SECURITY; |
--- | prepared statement "..." already exists, atau koneksi        | koneksi lewat pooler mode    | Ganti port 6543 menjadi 5432 |
--- |   terputus saat menyimpan                                     | transaction                  |          |
--- | Toggle editing mati, layer terbaca baca-saja                 | tabel tanpa primary key      | ALTER TABLE gis.<tabel> ADD PRIMARY KEY (id); |
---
--- Dua catatan tentang Supabase yang sering tertukar:
---
--- 1. Port 6543 adalah pooler mode transaction. Alat seperti QGIS dan
---    DBeaver memakai prepared statement dan pengaturan per sesi, dan
---    keduanya tidak bertahan pada mode itu. Halaman Connect Supabase
---    menyediakan port 5432 (session pooler) yang aman untuk alat tersebut.
---    DATABASE_URL di berkas .env aplikasi tetap boleh memakai 6543.
---
--- 2. PostGIS tidak bisa dipindah schema setelah terpasang (sejak PostGIS
---    2.3). Memindahkannya menuntut DROP EXTENSION postgis CASCADE lalu
---    CREATE EXTENSION ulang. Karena itu Bagian 2 menyesuaikan search_path,
---    bukan memindahkan extensionnya.
--- =====================================================================
+-- TABEL KEPUTUSAN. Cocokkan pesan galat di QGIS dengan baris berikut.
+-- - addgeometrycolumn / type "geometry" / st_srid dan kawan-kawan does not exist: PostGIS di
+--   luar search_path, jalankan Bagian 2.
+-- - public.addgeometrycolumn(...) does not exist: wrapper panduan lama, Bagian 2 lalu Bagian 3.
+-- - permission denied for schema gis: peran koneksi bukan pemilik, jalankan
+--   GRANT USAGE, CREATE ON SCHEMA gis TO <peran>;
+-- - new row violates row-level security policy: RLS aktif di tabel spasial, jalankan
+--   ALTER TABLE gis.<tabel> DISABLE ROW LEVEL SECURITY;
+-- - prepared statement "..." already exists atau koneksi terputus saat menyimpan berarti
+--   koneksi lewat pooler mode transaction, ganti port 6543 menjadi 5432. Mode itu tidak
+--   mempertahankan prepared statement maupun pengaturan per sesi, tapi DATABASE_URL
+--   aplikasi tetap boleh memakai 6543.
+-- - Toggle editing mati dan layer terbaca baca-saja: tabelnya tanpa primary key, jalankan
+--   ALTER TABLE gis.<tabel> ADD PRIMARY KEY (id);
