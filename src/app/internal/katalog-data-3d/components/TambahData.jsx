@@ -4,6 +4,7 @@ import { Box, Button, MenuItem, TextField, Typography } from "@mui/material";
 import UploadIcon from "@mui/icons-material/Upload";
 import { useEffect, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
+import { bacaResponsJson } from "../../../../../lib/bacaRespons";
 
 // Gaya kolom isian, dipakai seluruh TextField biasa pada formulir ini.
 // Kolom Select pada Akses memakai gayanya sendiri, lihat di bawah.
@@ -123,7 +124,7 @@ const TambahData = ({ form, setForm, handleCloseCreate, getData, accessToken }) 
                 body: formData,
             });
 
-            const result = await response.json();
+            const result = await bacaResponsJson(response);
 
             if (!response.ok) {
                 throw new Error(result.message || "Gagal menyimpan data");

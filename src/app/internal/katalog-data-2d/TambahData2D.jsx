@@ -2,6 +2,7 @@ import { Box, Button, MenuItem, TextField, FormControlLabel, Switch } from "@mui
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import { useSession } from "next-auth/react";
 import Swal from "sweetalert2";
+import { bacaResponsJson } from "../../../../lib/bacaRespons";
 
 const TambahData2D = ({ form, setForm, submitting, setSubmitting, onSuccess, onClose }) => {
   const { data: session } = useSession();
@@ -32,7 +33,7 @@ const TambahData2D = ({ form, setForm, submitting, setSubmitting, onSuccess, onC
         body: formData,
       });
 
-      const result = await res.json();
+      const result = await bacaResponsJson(res);
 
       if (!res.ok || !result.success) {
         throw new Error(result.message || result.error || "Gagal menyimpan layer");
