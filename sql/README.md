@@ -30,22 +30,25 @@ Jalankan berurutan. Setiap baris di bawah adalah satu kali tempel dan satu kali 
 | # | Berkas | Kapan | Mengubah data? |
 |---|---|---|---|
 | 1 | `01-schema.sql` | Setelah project Supabase dibuat | Tidak, hanya membuat tabel |
-| 2 | `02-seed-super-admin.sql` | Setelah langkah 1 | Ya, menambah satu akun super admin |
-| 3 | `03-periksa.sql` | Setelah langkah 2 | Tidak, hanya membaca |
-| 4 | `05-diagnosa-constraint.sql` | Bila ada kegagalan constraint | Tidak, hanya membaca |
-| 5 | `04-postgis-supabase.sql` | Hanya untuk data spasial, baca catatannya | Ya, mengubah `search_path` database |
-| 6 | `06-migrasi-peran-viewer.sql` | Hanya bila database dibuat memakai versi `01-schema.sql` yang lama | Ya, memindahkan akun berperan `editor` |
-| 7 | `07-aktifkan-rls.sql` | Hanya bila tabel Anda dibuat sebelum `01-schema.sql` memuat perintah RLS | Ya, mengaktifkan Row Level Security |
+| 2 | Perintah RLS | Segera setelah langkah 1, selagi tabelnya baru dibuat | Tidak, hanya mengubah pengaturan tabel |
+| 3 | `02-seed-super-admin.sql` | Setelah langkah 2 | Ya, menambah satu akun super admin |
+| 4 | `03-periksa.sql` | Setelah langkah 3 | Tidak, hanya membaca |
+| 5 | `05-diagnosa-constraint.sql` | Bila ada kegagalan constraint | Tidak, hanya membaca |
+| 6 | `04-postgis-supabase.sql` | Hanya untuk data spasial, baca catatannya | Ya, mengubah `search_path` database |
 
-Berkas nomor 6 hanya diperlukan bila database Anda sudah terlanjur dibuat sebelum peran `editor` dihapus. Sebabnya, `01-schema.sql` memakai `CREATE TABLE IF NOT EXISTS`, sehingga menjalankannya kembali **tidak** mengubah tabel yang sudah ada.
+Langkah 2 bukan berkas tersendiri, melainkan tiga perintah yang dijalankan sekali di SQL Editor:
 
-Akibat bila berkas itu tidak dijalankan pada database lama: akun yang berperan `editor` masih dapat login, tetapi ditolak di seluruh endpoint katalog dengan `403`, karena `lib/auth/roles.js` tidak lagi mengenal peran itu.
+```sql
+ALTER TABLE users           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE katalog_data_2d ENABLE ROW LEVEL SECURITY;
+ALTER TABLE katalog_data_3d ENABLE ROW LEVEL SECURITY;
+```
 
-Berkas nomor 7 memperingatkan hal yang lebih serius. Tanpa Row Level Security, tabel di schema `public` dapat dibaca lewat REST API Supabase memakai kunci `anon`. Kunci itu memang dirancang untuk dipakai di sisi peramban, jadi nilainya tidak dianggap rahasia.
+Row Level Security dikerjakan di sini karena Supabase menyediakan REST API otomatis untuk setiap tabel di schema `public`, dan kunci `anon` yang dipakai API itu memang dirancang untuk dipakai di sisi peramban. Kunci itu tidak dianggap rahasia, sehingga yang mencegah penyalahgunaannya adalah RLS.
 
-Diuji pada project Supabase sungguhan: sebelum RLS diaktifkan, peran `anon` **dapat membaca kolom `password`**, dan memiliki izin `SELECT`, `INSERT`, `UPDATE`, `DELETE`, serta `TRUNCATE` pada tabel `users`. Setelah RLS diaktifkan, peran `anon` dan `authenticated` tidak melihat satu baris pun, sedangkan aplikasi tetap berjalan normal karena koneksi Prisma memakai peran `postgres` yang merupakan pemilik tabel.
+Diuji pada project Supabase sungguhan: tanpa RLS, peran `anon` **dapat membaca kolom `password`**, dan memiliki izin `SELECT`, `INSERT`, `UPDATE`, `DELETE`, serta `TRUNCATE` pada tabel `users`. Setelah RLS diaktifkan, peran `anon` dan `authenticated` tidak melihat satu baris pun, sedangkan aplikasi tetap berjalan normal karena koneksi Prisma memakai peran `postgres` yang merupakan pemilik tabel.
 
-Langkah 1 sampai 3 sudah cukup untuk membuat portal berjalan dengan login dan Kelola Akun.
+Langkah 1 sampai 4 sudah cukup untuk membuat portal berjalan dengan login dan Kelola Akun.
 
 ## Tiga Tabel yang Dibuat
 

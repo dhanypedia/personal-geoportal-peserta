@@ -94,18 +94,5 @@ COMMIT;
 -- Periksa setelah COMMIT: ketiga tabel harus punya primary key, dan katalog_data_2d
 -- harus punya foreign key (contype 'f') ke users.
 
--- Keamanan: RLS pada ketiga tabel. Tanpa ini tabel di schema public bisa dibaca dan diubah
--- lewat REST API Supabase dengan kunci anon, tanpa login. Diuji: sebelum RLS, peran anon bisa
--- membaca kolom password di tabel users; sesudah RLS, anon dan authenticated tidak melihat
--- satu baris pun. Aplikasi tetap jalan karena Prisma memakai peran postgres, pemilik tabel,
--- dan pemilik tabel melewati RLS. RLS tanpa policy memang itu yang diinginkan: semua akses
--- lewat API aplikasi sendiri.
-BEGIN;
-
-ALTER TABLE users           ENABLE ROW LEVEL SECURITY;
-ALTER TABLE katalog_data_2d ENABLE ROW LEVEL SECURITY;
-ALTER TABLE katalog_data_3d ENABLE ROW LEVEL SECURITY;
-
-COMMIT;
-
--- Periksa hasilnya. relrowsecurity harus true untuk ketiga tabel.
+-- Mengaktifkan Row Level Security dikerjakan sesaat setelah berkas ini selesai,
+-- dengan perintah yang ada pada halaman Skema Database di modul pelatihan.
