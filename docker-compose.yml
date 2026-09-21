@@ -32,18 +32,25 @@ services:
       - MAXIMUM_MEMORY=2048m
       - GEOSERVER_ADMIN_USER=admin
       - GEOSERVER_ADMIN_PASSWORD=${GEOSERVER_ADMIN_PASSWORD}
-      - GEOSERVER_CORS_ENABLED=true
-      - GEOSERVER_CORS_ALLOWED_ORIGINS=*
+      # CORS tidak perlu diatur di sini. Image ini sudah mengaktifkannya pada
+      # web.xml Tomcat, dan permintaan dari browser melewati Nginx sehingga
+      # berasal dari alamat yang sama dengan halaman webnya.
+      #
       # GeoServer memblokir formulir yang Origin-nya tidak dikenal, sebagai
       # perlindungan CSRF. Karena permintaan melewati Nginx, Origin yang
       # diterima GeoServer adalah alamat publik, bukan localhost.
+      #
+      # Nama variabelnya CSRF_WHITELIST, TANPA awalan GEOSERVER_. Image
+      # kartoza membacanya pada scripts/entrypoint.sh baris 93 dan
+      # meneruskannya sebagai -DGEOSERVER_CSRF_WHITELIST. Memakai awalan itu
+      # membuat nilainya kosong tanpa pesan galat apa pun.
       #
       # Tanpa daftar ini, pembuatan workspace dan datastore lewat antarmuka
       # gagal dengan "HTTP Status 400 - Origin does not correspond to request".
       #
       # webgisbig.com mencakup seluruh subdomainnya, sehingga satu nilai
       # berlaku untuk semua peserta.
-      - GEOSERVER_CSRF_WHITELIST=webgisbig.com
+      - CSRF_WHITELIST=webgisbig.com
     volumes:
       # Volume inilah yang membuat workspace, store, dan layer hasil unggahan
       # bertahan setelah container dibuat ulang.
