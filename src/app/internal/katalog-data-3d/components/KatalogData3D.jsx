@@ -73,6 +73,7 @@ export default function KatalogData3D() {
   const [openDelete, setOpenDelete] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [form, setForm] = useState(DEFAULT_FORM);
+  const [submitting, setSubmitting] = useState(false);
 
   const session = useSession();
 
@@ -339,7 +340,7 @@ export default function KatalogData3D() {
       </Paper>
 
       {/* Modal Form Tambah Data */}
-      <Modal open={openAdd} onClose={handleCloseAdd}>
+      <Modal open={openAdd} onClose={() => !submitting && handleCloseAdd()}>
         <Box
           sx={{
             position: "absolute",
@@ -359,7 +360,7 @@ export default function KatalogData3D() {
             <Typography id="modal-tambah-data-3d" variant="h6" sx={{ fontWeight: 700, color: "#1E1E2D" }}>
               Tambah Layer Data 3D
             </Typography>
-            <IconButton onClick={handleCloseAdd} size="small" sx={{ color: "#6B7280" }}>
+            <IconButton onClick={handleCloseAdd} disabled={submitting} size="small" sx={{ color: "#6B7280" }}>
               <Close />
             </IconButton>
           </Box>
@@ -370,6 +371,8 @@ export default function KatalogData3D() {
             handleCloseAdd={handleCloseAdd}
             getData={getData}
             accessToken={session?.data?.accessToken}
+            submitting={submitting}
+            setSubmitting={setSubmitting}
           />
         </Box>
       </Modal>

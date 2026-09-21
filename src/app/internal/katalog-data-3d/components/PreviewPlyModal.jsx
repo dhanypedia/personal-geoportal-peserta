@@ -4,6 +4,45 @@ import { useEffect, useRef, useState } from "react";
 import { Box, IconButton, Typography } from "@mui/material";
 import { Close } from "@mui/icons-material";
 
+// Membingkai kamera pada ukuran model yang sebenarnya.
+//
+// Kamera bawaan pustaka ini berada di posisi tetap yang hanya cocok untuk
+// model berukuran satuan. Nilai scale datang dari formulir, dan bawaannya 100.
+// Pada nilai itu seluruh model jatuh di luar bidang jauh kamera, sehingga
+// pratinjau tampil kosong tanpa pesan galat apa pun.
+function bingkaiModel(viewer, THREE) {
+    try {
+        const kotak = viewer.splatMesh && viewer.splatMesh.computeBoundingBox(true);
+        if (!kotak) return;
+
+        const tengah = kotak.getCenter(new THREE.Vector3());
+        const ukuran = kotak.getSize(new THREE.Vector3());
+        const radius = Math.max(ukuran.x, ukuran.y, ukuran.z) / 2;
+        if (!Number.isFinite(radius) || radius <= 0) return;
+
+        const fov = (viewer.camera.fov * Math.PI) / 180;
+        const jarak = (radius / Math.tan(fov / 2)) * 1.3;
+
+        // Bidang potong ikut menyesuaikan. Tanpa ini, model berskala besar
+        // berada di luar bidang jauh dan tidak tergambar.
+        viewer.camera.near = Math.max(0.01, jarak / 1000);
+        viewer.camera.far = jarak * 1000;
+        viewer.camera.updateProjectionMatrix();
+
+        viewer.camera.position.set(tengah.x, tengah.y + radius * 0.25, tengah.z + jarak);
+        viewer.camera.lookAt(tengah);
+
+        if (viewer.controls) {
+            viewer.controls.target.copy(tengah);
+            viewer.controls.update();
+        }
+    } catch (err) {
+        // Pembingkaian hanya memperbaiki tampilan. Bila gagal, model tetap
+        // ditampilkan dengan kamera bawaan.
+        console.warn("Gagal membingkai model:", err);
+    }
+}
+
 // Pratinjau Gaussian Splat. Pustakanya diimpor saat modal dibuka, bukan di
 // tingkat modul, supaya three.js yang berukuran besar tidak ikut ke bundel
 // halaman katalog bagi peserta yang hanya memakai model .glb.
@@ -12,6 +51,7 @@ export default function PreviewPlyModal({ openPreview, item, handleClosePreview 
     const viewerRef = useRef(null);
     const [status, setStatus] = useState("idle");
     const [errorMessage, setErrorMessage] = useState("");
+    const [persen, setPersen] = useState(0);
 
     useEffect(() => {
         if (!openPreview || !item?.url || !containerRef.current) return;
@@ -19,6 +59,7 @@ export default function PreviewPlyModal({ openPreview, item, handleClosePreview 
         let cancelled = false;
         setStatus("memuat");
         setErrorMessage("");
+        setPersen(0);
 
         // Wadah ini dibuat di luar pohon React, karena pustaka penampil
         // menambah dan melepas elemennya sendiri. Bila React ikut melacaknya,
@@ -63,6 +104,13 @@ export default function PreviewPlyModal({ openPreview, item, handleClosePreview 
                         scale: [scaleValue, scaleValue, scaleValue],
                         splatAlphaRemovalThreshold: 5,
                         showLoadingUI: false,
+                        // Tanpa ini, layar hanya menampilkan tulisan memuat
+                        // selama berkas puluhan megabita diunduh, tanpa tanda
+                        // apa pun bahwa ada kemajuan.
+                        onProgress: (persen) => {
+                            if (cancelled) return;
+                            setPersen((lama) => Math.max(lama, Math.round(persen)));
+                        },
                     })
                     .then(() => {
                         if (cancelled) return;
@@ -72,6 +120,8 @@ export default function PreviewPlyModal({ openPreview, item, handleClosePreview 
                             viewer.controls.maxPolarAngle = Math.PI;
                             viewer.controls.enableDamping = true;
                         }
+
+                        bingkaiModel(viewer, THREE);
 
                         viewer.start();
                         setStatus("siap");
@@ -151,7 +201,7 @@ export default function PreviewPlyModal({ openPreview, item, handleClosePreview 
             >
                 {status === "memuat" && (
                     <Typography sx={{ color: "#fff", position: "absolute", zIndex: 1 }}>
-                        Memuat Gaussian Splat...
+                        Memuat Gaussian Splat{persen > 0 ? `... ${persen}%` : "..."}
                     </Typography>
                 )}
 

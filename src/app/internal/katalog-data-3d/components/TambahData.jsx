@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Button, MenuItem, TextField, Typography } from "@mui/material";
+import { Box, Button, LinearProgress, MenuItem, TextField, Typography } from "@mui/material";
 import UploadIcon from "@mui/icons-material/Upload";
 import { useEffect, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
@@ -20,7 +20,7 @@ const textFieldStyle = {
     "& .MuiFormHelperText-root": { color: "#6B7280" },
 };
 
-const TambahData = ({ form, setForm, handleCloseCreate, getData, accessToken }) => {
+const TambahData = ({ form, setForm, handleCloseCreate, getData, accessToken, submitting, setSubmitting }) => {
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const markerRef = useRef(null);
@@ -87,11 +87,18 @@ const TambahData = ({ form, setForm, handleCloseCreate, getData, accessToken }) 
     }, []);
 
     const handleSubmitData = async () => {
+        if (submitting) return;
+
         try {
             if (!form?.file) {
                 alert("Silakan pilih file 3D terlebih dahulu!");
                 return;
             }
+
+            // Model 3D sering berukuran puluhan megabita, sehingga unggahannya
+            // berjalan lama. Tanpa penanda, tombolnya tampak tidak bekerja dan
+            // peserta mengkliknya berulang kali.
+            if (setSubmitting) setSubmitting(true);
 
             const formData = new FormData();
             formData.append("file", form.file);
@@ -135,6 +142,8 @@ const TambahData = ({ form, setForm, handleCloseCreate, getData, accessToken }) 
             getData(); // refresh table katalog
         } catch (err) {
             alert(err.message);
+        } finally {
+            if (setSubmitting) setSubmitting(false);
         }
     };
 
@@ -322,6 +331,7 @@ const TambahData = ({ form, setForm, handleCloseCreate, getData, accessToken }) 
                         variant="contained"
                         color="warning"
                         onClick={handleCloseCreate}
+                        disabled={submitting}
                         sx={{ textTransform: "none" }}
                     >
                         Cancel
@@ -331,11 +341,22 @@ const TambahData = ({ form, setForm, handleCloseCreate, getData, accessToken }) 
                         variant="contained"
                         color="info"
                         onClick={handleSubmitData}
+                        disabled={submitting}
                         sx={{ textTransform: "none" }}
                     >
-                        Submit
+                        {submitting ? "Mengunggah..." : "Submit"}
                     </Button>
                 </Box>
+
+                {submitting && (
+                    <Box sx={{ mt: 2 }}>
+                        <LinearProgress />
+                        <Typography sx={{ fontSize: 12, color: "#6B7280", mt: 0.5 }}>
+                            Mengunggah {form?.file?.name} ({(form.file.size / 1048576).toFixed(1)} MB).
+                            Berkas besar butuh beberapa menit. Jangan tutup jendela ini.
+                        </Typography>
+                    </Box>
+                )}
             </Box>
 
             {/* Peta Pemilihan Lokasi */}
