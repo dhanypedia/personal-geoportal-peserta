@@ -4,6 +4,48 @@ import { useEffect, useRef, useState } from "react";
 import { Box, IconButton, Typography } from "@mui/material";
 import { Close } from "@mui/icons-material";
 
+// Menghitung kotak pembatas yang kokoh, yaitu dari persentil 5 sampai 95
+// posisi splat, bukan dari titik terjauh.
+//
+// Alasannya, hasil rekonstruksi Gaussian Splat hampir selalu memuat splat
+// nyasar yang terlempar jauh dari subjeknya. Diukur pada gedung-3d.ply:
+// separuh splatnya berkumpul dalam kotak 6,9 x 4,4 x 7,6 satuan, sedangkan
+// kotak penuhnya 388 x 175 x 391 satuan. Selisihnya 55 kali. Bila kamera
+// dibingkai pada kotak penuh, bangunannya tampil sebagai bintik kecil di
+// tengah layar, dan itulah yang terlihat seperti pratinjau rusak.
+//
+// Sampling dipakai supaya tetap cepat pada berkas berukuran ratusan ribu
+// splat, dan hanya sebagian posisi yang perlu dibaca untuk mendapat
+// persentil yang stabil.
+function kotakKokoh(viewer, THREE, sampelMaks = 20000) {
+    const total = viewer.splatMesh && viewer.splatMesh.getSplatCount();
+    if (!total || !viewer.splatMesh.getSplatCenter) return null;
+
+    const langkah = Math.max(1, Math.floor(total / sampelMaks));
+    const v = new THREE.Vector3();
+    const xs = [];
+    const ys = [];
+    const zs = [];
+
+    for (let i = 0; i < total; i += langkah) {
+        viewer.splatMesh.getSplatCenter(i, v, true);
+        xs.push(v.x);
+        ys.push(v.y);
+        zs.push(v.z);
+    }
+    if (xs.length < 100) return null;
+
+    const persentil = (arr, p) => {
+        const s = arr.slice().sort((a, b) => a - b);
+        return s[Math.min(s.length - 1, Math.max(0, Math.floor(s.length * p)))];
+    };
+
+    return new THREE.Box3(
+        new THREE.Vector3(persentil(xs, 0.05), persentil(ys, 0.05), persentil(zs, 0.05)),
+        new THREE.Vector3(persentil(xs, 0.95), persentil(ys, 0.95), persentil(zs, 0.95))
+    );
+}
+
 // Membingkai kamera pada ukuran model yang sebenarnya.
 //
 // Kamera bawaan pustaka ini berada di posisi tetap yang hanya cocok untuk
@@ -12,8 +54,24 @@ import { Close } from "@mui/icons-material";
 // pratinjau tampil kosong tanpa pesan galat apa pun.
 function bingkaiModel(viewer, THREE) {
     try {
-        const kotak = viewer.splatMesh && viewer.splatMesh.computeBoundingBox(true);
+        let kotak = viewer.splatMesh && viewer.splatMesh.computeBoundingBox(true);
         if (!kotak) return;
+
+        // Kotak kokoh dipakai hanya bila jauh lebih kecil daripada kotak penuh,
+        // karena itulah tanda ada splat nyasar. Pada model yang bersih, kedua
+        // kotak hampir sama dan kotak penuh yang dipakai.
+        try {
+            const kokoh = kotakKokoh(viewer, THREE);
+            if (kokoh) {
+                const lebarPenuh = kotak.getSize(new THREE.Vector3()).length();
+                const lebarKokoh = kokoh.getSize(new THREE.Vector3()).length();
+                if (lebarPenuh > 0 && lebarKokoh / lebarPenuh < 0.5) {
+                    kotak = kokoh;
+                }
+            }
+        } catch (err) {
+            console.warn("Kotak kokoh gagal dihitung, memakai kotak penuh:", err);
+        }
 
         const tengah = kotak.getCenter(new THREE.Vector3());
         const ukuran = kotak.getSize(new THREE.Vector3());
