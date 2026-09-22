@@ -19,6 +19,7 @@
     "@tmcw/togeojson": "^7.1.2",
     "@turf/turf": "^7.4.0",
     "bcryptjs": "^3.0.3",
+    "busboy": "^1.6.0",
     "cesium": "^1.145.0",
     "crypto": "^1.0.1",
     "georaster": "^1.6.0",

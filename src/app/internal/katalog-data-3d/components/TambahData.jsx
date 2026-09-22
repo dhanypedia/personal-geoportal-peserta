@@ -1,13 +1,13 @@
 "use client";
 
-import { Box, Button, IconButton, MenuItem, TextField, Typography, List, ListItemButton, ListItemText, CircularProgress, InputAdornment } from "@mui/material";
+import { Box, Button, IconButton, MenuItem, TextField, Typography, List, ListItemButton, ListItemText, CircularProgress, InputAdornment, LinearProgress } from "@mui/material";
 import UploadIcon from "@mui/icons-material/Upload";
 import SearchIcon from "@mui/icons-material/Search";
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Close } from "@mui/icons-material";
-import { bacaResponsJson } from "../../../../../lib/bacaRespons";
+import { FASE, unggahDenganProgres, formatUkuran } from "../../../../../lib/unggahDenganProgres";
 
 const textFieldStyle = {
     "& .MuiInputBase-input": { color: "#1F2937" },
@@ -25,6 +25,12 @@ const TambahData = ({ form, setForm, handleCloseAdd, getData, accessToken }) => 
     const mapInstanceRef = useRef(null);
     const markerRef = useRef(null);
     const [centerPoint, setCenterPoint] = useState([-6.2088, 106.8456]);
+
+    // Bernilai null saat tidak ada unggahan yang berjalan. Selama berisi,
+    // dialog menampilkan kemajuannya dan tombol Simpan ditahan, supaya satu
+    // berkas tidak terkirim dua kali.
+    const [unggahan, setUnggahan] = useState(null);
+    const batalUnggahRef = useRef(null);
 
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState([]);
@@ -131,43 +137,79 @@ const TambahData = ({ form, setForm, handleCloseAdd, getData, accessToken }) => 
     };
 
     const handleSubmitData = async () => {
+        if (unggahan) return;
+
+        if (!form?.file) {
+            alert("Silakan pilih file 3D terlebih dahulu!");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", form.file);
+        formData.append("model_name", form.model_name || "");
+        formData.append("akses", form.akses || "public");
+        formData.append("latitude", form.latitude || centerPoint[0]);
+        formData.append("longitude", form.longitude || centerPoint[1]);
+        formData.append("heading", form.heading);
+        formData.append("pitch", form.pitch);
+        formData.append("roll", form.roll);
+        formData.append("scale", form.scale)
+
+        setUnggahan({
+            fase: FASE.MENGUNGGAH,
+            persen: 0,
+            terkirim: 0,
+            total: form.file.size,
+            bytePerDetik: 0,
+        });
+
+        // Kemajuan dilaporkan dua tahap. Tahap pertama mengikuti byte yang
+        // benar-benar terkirim. Tahap kedua muncul setelah peramban selesai
+        // mengirim, karena server masih menulis berkasnya ke disk dan
+        // menyimpan barisnya ke database. Tanpa tahap kedua, bilahnya berhenti
+        // di 100 persen dan terlihat macet.
+        const { janji, batal } = unggahDenganProgres({
+            url: "/portal/api/katalog-data-3d/create",
+            formData,
+            accessToken,
+            onKemajuan: (kemajuan) =>
+                setUnggahan((u) => (u ? { ...u, ...kemajuan, fase: FASE.MENGUNGGAH } : u)),
+            onFase: (fase) => setUnggahan((u) => (u ? { ...u, fase } : u)),
+        });
+        batalUnggahRef.current = batal;
+
         try {
-            if (!form?.file) {
-                alert("Silakan pilih file 3D terlebih dahulu!");
-                return;
+            const { ok, data } = await janji;
+
+            if (!ok) {
+                throw new Error(data.message || "Gagal menyimpan data");
             }
 
-            const formData = new FormData();
-            formData.append("file", form.file);
-            formData.append("model_name", form.model_name || "");
-            formData.append("akses", form.akses || "public");
-            formData.append("latitude", form.latitude || centerPoint[0]);
-            formData.append("longitude", form.longitude || centerPoint[1]);
-            formData.append("heading", form.heading);
-            formData.append("pitch", form.pitch);
-            formData.append("roll", form.roll);
-            formData.append("scale", form.scale)
-
-            const response = await fetch("/portal/api/katalog-data-3d/create", {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
-                body: formData,
-            });
-
-            const result = await bacaResponsJson(response);
-
-            if (!response.ok) {
-                throw new Error(result.message || "Gagal menyimpan data");
-            }
-
+            batalUnggahRef.current = null;
+            setUnggahan(null);
             alert("Berhasil menambah data 3D!");
             handleCloseAdd();
             getData();
         } catch (err) {
-            alert(err.message);
+            batalUnggahRef.current = null;
+            setUnggahan(null);
+
+            // Pembatalan oleh pengguna bukan kegagalan, jadi tidak dilaporkan
+            // sebagai galat.
+            if (!err.dibatalkan) alert(err.message);
         }
+    };
+
+    // Menghentikan unggahan tanpa menutup dialog. Dialognya sengaja tetap
+    // terbuka supaya berkas lain bisa langsung dipilih tanpa mengisi ulang
+    // seluruh formulirnya.
+    const hentikanUnggahan = () => {
+        if (batalUnggahRef.current) batalUnggahRef.current();
+    };
+
+    const tutupDialog = () => {
+        if (batalUnggahRef.current) batalUnggahRef.current();
+        handleCloseAdd();
     };
 
     return (
@@ -190,7 +232,15 @@ const TambahData = ({ form, setForm, handleCloseAdd, getData, accessToken }) => 
                 <Typography id="modal-tambah-data-3d" variant="h6" sx={{ fontWeight: 700, color: "#1E1E2D" }}>
                     Tambah Layer Data 3D
                 </Typography>
-                <IconButton onClick={handleCloseAdd} size="small" sx={{ color: "#6B7280" }}>
+                {/* Ikon saja tanpa teks, jadi namanya perlu disebut eksplisit.
+                    Tanpa itu pembaca layar mengumumkannya sebagai "tombol"
+                    tanpa keterangan. */}
+                <IconButton
+                    onClick={tutupDialog}
+                    size="small"
+                    aria-label="Tutup dialog"
+                    sx={{ color: "#6B7280" }}
+                >
                     <Close />
                 </IconButton>
             </Box>
@@ -285,19 +335,103 @@ const TambahData = ({ form, setForm, handleCloseAdd, getData, accessToken }) => 
                         sx={textFieldStyle}
                     />
 
+                    {unggahan && (
+                        <Box>
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "baseline",
+                                    gap: 1,
+                                    mb: 0.75,
+                                }}
+                            >
+                                {/* Perubahan fase diumumkan ke pembaca layar.
+                                    Persentasenya sengaja tidak, karena nilainya
+                                    berubah ratusan kali dan akan terus
+                                    bersuara tanpa henti. */}
+                                <Typography
+                                    aria-live="polite"
+                                    sx={{ fontSize: 13, fontWeight: 600, color: "#1F2937" }}
+                                >
+                                    {unggahan.fase === FASE.MEMPROSES
+                                        ? "Server sedang menyimpan berkas"
+                                        : "Mengunggah berkas"}
+                                </Typography>
+                                {unggahan.fase === FASE.MENGUNGGAH && (
+                                    <Typography
+                                        sx={{
+                                            fontSize: 13,
+                                            fontWeight: 700,
+                                            color: "#1976D2",
+                                            fontVariantNumeric: "tabular-nums",
+                                        }}
+                                    >
+                                        {unggahan.persen}%
+                                    </Typography>
+                                )}
+                            </Box>
+
+                            <LinearProgress
+                                variant={unggahan.fase === FASE.MEMPROSES ? "indeterminate" : "determinate"}
+                                value={unggahan.persen}
+                                sx={{
+                                    height: 8,
+                                    borderRadius: 1,
+                                    bgcolor: "#E5E7EB",
+                                    "& .MuiLinearProgress-bar": { bgcolor: "#1976D2" },
+                                }}
+                            />
+
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    gap: 1,
+                                    mt: 0.75,
+                                }}
+                            >
+                                <Typography
+                                    sx={{
+                                        fontSize: 12,
+                                        color: "#6B7280",
+                                        fontVariantNumeric: "tabular-nums",
+                                    }}
+                                >
+                                    {unggahan.fase === FASE.MEMPROSES
+                                        ? `${formatUkuran(unggahan.total)} terkirim. Jangan tutup halaman ini.`
+                                        : `${formatUkuran(unggahan.terkirim)} dari ${formatUkuran(unggahan.total)}`}
+                                </Typography>
+                                {unggahan.fase === FASE.MENGUNGGAH && unggahan.bytePerDetik > 0 && (
+                                    <Typography
+                                        sx={{
+                                            fontSize: 12,
+                                            color: "#6B7280",
+                                            whiteSpace: "nowrap",
+                                            fontVariantNumeric: "tabular-nums",
+                                        }}
+                                    >
+                                        {formatUkuran(unggahan.bytePerDetik)}/detik
+                                    </Typography>
+                                )}
+                            </Box>
+                        </Box>
+                    )}
+
                     <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "flex-end", gap: "10px" }}>
                         <Button
                             variant="contained"
                             color="warning"
-                            onClick={handleCloseAdd}
+                            onClick={unggahan ? hentikanUnggahan : handleCloseAdd}
                             sx={{ textTransform: "none" }}
                         >
-                            Batalkan
+                            {unggahan ? "Hentikan unggahan" : "Batalkan"}
                         </Button>
                         <Button
                             variant="contained"
                             color="info"
                             onClick={handleSubmitData}
+                            disabled={Boolean(unggahan)}
                             sx={{ textTransform: "none" }}
                         >
                             Simpan

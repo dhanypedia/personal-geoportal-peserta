@@ -1,11 +1,13 @@
-import { Box, Button, MenuItem, TextField, FormControlLabel, Switch } from "@mui/material";
+import { useState } from "react";
+import { Box, Button, MenuItem, TextField, FormControlLabel, Switch, Typography, LinearProgress } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import { useSession } from "next-auth/react";
 import Swal from "sweetalert2";
-import { bacaResponsJson } from "../../../../../lib/bacaRespons";
+import { FASE, unggahDenganProgres, formatUkuran } from "../../../../../lib/unggahDenganProgres";
 
 const TambahData2D = ({ form, setForm, submitting, setSubmitting, onSuccess, onClose }) => {
   const { data: session } = useSession();
+  const [unggahan, setUnggahan] = useState(null);
 
   const handleCreate = async () => {
     if (!form.layer_name || !form.file) {
@@ -20,6 +22,14 @@ const TambahData2D = ({ form, setForm, submitting, setSubmitting, onSuccess, onC
     }
 
     setSubmitting(true);
+    setUnggahan({
+      fase: FASE.MENGUNGGAH,
+      persen: 0,
+      terkirim: 0,
+      total: form.file.size,
+      bytePerDetik: 0,
+    });
+
     try {
       const formData = new FormData();
       formData.append("layer_name", form.layer_name);
@@ -27,15 +37,20 @@ const TambahData2D = ({ form, setForm, submitting, setSubmitting, onSuccess, onC
       formData.append("akses", form.akses);
       formData.append("editable", form.editable);
 
-      const res = await fetch(`/portal/api/katalog-data-2d/create`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: formData,
+      // Kemajuannya dilaporkan seperti pada dialog 3D: satu tahap mengikuti
+      // byte yang terkirim, satu tahap lagi menunggu server menyimpan.
+      const { janji } = unggahDenganProgres({
+        url: "/portal/api/katalog-data-2d/create",
+        formData,
+        accessToken,
+        onKemajuan: (kemajuan) =>
+          setUnggahan((u) => (u ? { ...u, ...kemajuan, fase: FASE.MENGUNGGAH } : u)),
+        onFase: (fase) => setUnggahan((u) => (u ? { ...u, fase } : u)),
       });
 
-      const result = await bacaResponsJson(res);
+      const { ok, data: result } = await janji;
 
-      if (!res.ok || !result.success) {
+      if (!ok || !result.success) {
         throw new Error(result.message || result.error || "Gagal menyimpan layer");
       }
 
@@ -45,6 +60,7 @@ const TambahData2D = ({ form, setForm, submitting, setSubmitting, onSuccess, onC
     } catch (err) {
       Swal.fire("Gagal!", err.message || "Terjadi kesalahan saat menyimpan", "error");
     } finally {
+      setUnggahan(null);
       setSubmitting(false);
     }
   };
@@ -124,6 +140,45 @@ const TambahData2D = ({ form, setForm, submitting, setSubmitting, onSuccess, onC
         label="Editable (WFS-T)"
         sx={{ color: "#1E1E2D", m: 0 }}
       />
+
+      {unggahan && (
+        <Box>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 1, mb: 0.75 }}>
+            <Typography aria-live="polite" sx={{ fontSize: 13, fontWeight: 600, color: "#1E1E2D" }}>
+              {unggahan.fase === FASE.MEMPROSES ? "Server sedang menyimpan layer" : "Mengunggah berkas"}
+            </Typography>
+            {unggahan.fase === FASE.MENGUNGGAH && (
+              <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#1976D2", fontVariantNumeric: "tabular-nums" }}>
+                {unggahan.persen}%
+              </Typography>
+            )}
+          </Box>
+
+          <LinearProgress
+            variant={unggahan.fase === FASE.MEMPROSES ? "indeterminate" : "determinate"}
+            value={unggahan.persen}
+            sx={{
+              height: 8,
+              borderRadius: 1,
+              bgcolor: "#E5E7EB",
+              "& .MuiLinearProgress-bar": { bgcolor: "#1976D2" },
+            }}
+          />
+
+          <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, mt: 0.75 }}>
+            <Typography sx={{ fontSize: 12, color: "#6B7280", fontVariantNumeric: "tabular-nums" }}>
+              {unggahan.fase === FASE.MEMPROSES
+                ? `${formatUkuran(unggahan.total)} terkirim. Jangan tutup halaman ini.`
+                : `${formatUkuran(unggahan.terkirim)} dari ${formatUkuran(unggahan.total)}`}
+            </Typography>
+            {unggahan.fase === FASE.MENGUNGGAH && unggahan.bytePerDetik > 0 && (
+              <Typography sx={{ fontSize: 12, color: "#6B7280", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                {formatUkuran(unggahan.bytePerDetik)}/detik
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      )}
 
       <Button
         onClick={handleCreate}
