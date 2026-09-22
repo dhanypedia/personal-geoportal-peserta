@@ -4,12 +4,13 @@ import {
     Container, Box, Typography, Avatar, Card, CardContent,
     Button, Stack, Grid, Chip, Divider, CircularProgress, Alert, Paper,
     Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-    IconButton, InputAdornment, Snackbar
+    IconButton, InputAdornment
 } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import LockResetIcon from '@mui/icons-material/LockReset'
 import Visibility from '@mui/icons-material/Visibility'
 import VisibilityOff from '@mui/icons-material/VisibilityOff'
+import { berhasil } from '../../../../../lib/notifikasi'
 import EmailIcon from '@mui/icons-material/Email'
 import BadgeIcon from '@mui/icons-material/Badge'
 import MapIcon from '@mui/icons-material/Map'
@@ -37,7 +38,6 @@ const Profile = () => {
     });
     const [passwordError, setPasswordError] = useState('');
     const [passwordSubmitting, setPasswordSubmitting] = useState(false);
-    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
     useEffect(() => {
         const fetchUserData = async () => {
@@ -145,8 +145,9 @@ const Profile = () => {
                 throw new Error(result.message || 'Gagal mengganti password');
             }
 
-            setSnackbar({ open: true, message: 'Password berhasil diganti', severity: 'success' });
+            // Dialog ditutup lebih dahulu, baru pemberitahuannya tampil.
             setOpenPasswordDialog(false);
+            await berhasil('Kata sandi diganti', 'Gunakan kata sandi baru pada sesi masuk berikutnya.');
         } catch (err) {
             setPasswordError(err.message);
         } finally {
@@ -364,21 +365,6 @@ const Profile = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
-
-            {/* Snackbar Notifikasi */}
-            <Snackbar
-                open={snackbar.open}
-                autoHideDuration={3000}
-                onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-            >
-                <Alert
-                    severity={snackbar.severity}
-                    onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-                >
-                    {snackbar.message}
-                </Alert>
-            </Snackbar>
         </Container>
     );
 };

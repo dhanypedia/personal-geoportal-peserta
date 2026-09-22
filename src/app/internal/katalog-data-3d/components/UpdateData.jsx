@@ -12,6 +12,7 @@ import {
 import { Close } from "@mui/icons-material";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { berhasil, gagal, peringatan } from "../../../../../lib/notifikasi";
 
 // Style dasar dipakai untuk semua TextField agar konsisten dengan TambahData
 const textFieldStyle = {
@@ -123,7 +124,7 @@ const UpdateData = ({ item, handleCloseEdit, getData, accessToken }) => {
 
     const handleSubmit = async () => {
         if (!item?.data_3d_id) {
-            alert("Data tidak valid untuk diperbarui.");
+            peringatan("Data tidak valid", "Baris ini tidak dapat diperbarui.");
             return;
         }
 
@@ -154,11 +155,12 @@ const UpdateData = ({ item, handleCloseEdit, getData, accessToken }) => {
                 throw new Error(result.message || "Gagal memperbarui data");
             }
 
-            alert("Berhasil memperbarui data 3D!");
+            // Modal ditutup lebih dahulu, baru pemberitahuannya tampil.
             handleCloseEdit();
             getData();
+            await berhasil("Data 3D diperbarui", `Perubahan pada "${item.model_name || "model ini"}" tersimpan.`);
         } catch (err) {
-            alert(err.message);
+            await gagal("Gagal memperbarui data 3D", err.message);
         } finally {
             setSubmitting(false);
         }

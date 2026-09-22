@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import { Close, Visibility, VisibilityOff } from "@mui/icons-material";
 import { textFieldStyle, disabledFieldStyle } from "../style/style";
+import { berhasil, gagal, peringatan } from "../../../../../lib/notifikasi";
 
 const TambahAkun = ({ form, setForm, handleCloseAdd, getData, accessToken }) => {
     const [showPassword, setShowPassword] = useState(false);
@@ -22,7 +23,7 @@ const TambahAkun = ({ form, setForm, handleCloseAdd, getData, accessToken }) => 
     const handleSubmitData = async () => {
         try {
             if (!form?.name || !form?.email || !form?.password) {
-                alert("Name, email, dan password wajib diisi!");
+                peringatan("Isian belum lengkap", "Nama, email, dan kata sandi wajib diisi.");
                 return;
             }
 
@@ -49,11 +50,12 @@ const TambahAkun = ({ form, setForm, handleCloseAdd, getData, accessToken }) => 
                 throw new Error(result.message || "Gagal menyimpan akun");
             }
 
-            alert("Berhasil menambah akun!");
+            // Modal ditutup lebih dahulu, baru pemberitahuannya tampil.
             handleCloseAdd();
             getData();
+            await berhasil("Akun ditambahkan", `Akun ${form.email} sudah dapat dipakai.`);
         } catch (err) {
-            alert(err.message);
+            await gagal("Gagal menambah akun", err.message);
         } finally {
             setSubmitting(false);
         }

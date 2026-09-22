@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 import { Close } from "@mui/icons-material";
 import { textFieldStyle, disabledFieldStyle } from "../style/style";
+import { berhasil, gagal, peringatan } from "../../../../../lib/notifikasi";
 
 const UpdateAkun = ({ item, handleCloseEdit, getData, accessToken }) => {
     const [form, setForm] = useState({
@@ -33,7 +34,7 @@ const UpdateAkun = ({ item, handleCloseEdit, getData, accessToken }) => {
 
     const handleSubmit = async () => {
         if (!item?.user_id) {
-            alert("Data akun tidak valid untuk diperbarui.");
+            peringatan("Data tidak valid", "Akun ini tidak dapat diperbarui.");
             return;
         }
 
@@ -59,11 +60,12 @@ const UpdateAkun = ({ item, handleCloseEdit, getData, accessToken }) => {
                 throw new Error(result.message || "Gagal memperbarui akun");
             }
 
-            alert("Berhasil memperbarui akun!");
+            // Modal ditutup lebih dahulu, baru pemberitahuannya tampil.
             handleCloseEdit();
             getData();
+            await berhasil("Akun diperbarui", `Perubahan pada ${item.email} tersimpan.`);
         } catch (err) {
-            alert(err.message);
+            await gagal("Gagal memperbarui akun", err.message);
         } finally {
             setSubmitting(false);
         }

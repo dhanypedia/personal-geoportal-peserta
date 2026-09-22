@@ -8,6 +8,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Close } from "@mui/icons-material";
 import { FASE, unggahDenganProgres, formatUkuran } from "../../../../../lib/unggahDenganProgres";
+import { berhasil, gagal, peringatan } from "../../../../../lib/notifikasi";
 
 const textFieldStyle = {
     "& .MuiInputBase-input": { color: "#1F2937" },
@@ -140,7 +141,7 @@ const TambahData = ({ form, setForm, handleCloseAdd, getData, accessToken }) => 
         if (unggahan) return;
 
         if (!form?.file) {
-            alert("Silakan pilih file 3D terlebih dahulu!");
+            peringatan("Berkas belum dipilih", "Pilih berkas .ply atau .glb terlebih dahulu.");
             return;
         }
 
@@ -187,16 +188,24 @@ const TambahData = ({ form, setForm, handleCloseAdd, getData, accessToken }) => 
 
             batalUnggahRef.current = null;
             setUnggahan(null);
-            alert("Berhasil menambah data 3D!");
+
+            // Modal ditutup lebih dahulu, baru pemberitahuannya tampil, supaya
+            // pemberitahuannya tidak menggantung di atas modal yang terbuka.
             handleCloseAdd();
             getData();
+            await berhasil(
+                "Data 3D ditambahkan",
+                `Model "${form.model_name || "tanpa nama"}" tersimpan di katalog.`
+            );
         } catch (err) {
             batalUnggahRef.current = null;
             setUnggahan(null);
 
             // Pembatalan oleh pengguna bukan kegagalan, jadi tidak dilaporkan
             // sebagai galat.
-            if (!err.dibatalkan) alert(err.message);
+            if (!err.dibatalkan) {
+                await gagal("Gagal menyimpan data 3D", err.message);
+            }
         }
     };
 

@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { Box, Button, IconButton, Typography } from "@mui/material";
 import { Close, WarningAmberRounded } from "@mui/icons-material";
+import { berhasil, gagal, peringatan } from "../../../../../lib/notifikasi";
 
 const HapusAkun = ({ item, accessToken, getData, handleCloseDelete }) => {
     const [submitting, setSubmitting] = useState(false);
 
     const handleDelete = async () => {
         if (!item?.user_id) {
-            alert("Data akun tidak valid untuk dihapus.");
+            peringatan("Data tidak valid", "Akun ini tidak dapat dihapus.");
             return;
         }
 
@@ -29,11 +30,12 @@ const HapusAkun = ({ item, accessToken, getData, handleCloseDelete }) => {
                 throw new Error(result.message || "Gagal menghapus akun");
             }
 
-            alert("Berhasil menghapus akun!");
+            // Modal ditutup lebih dahulu, baru pemberitahuannya tampil.
             handleCloseDelete();
             getData();
+            await berhasil("Akun dihapus", `Akun ${item.email} sudah tidak ada lagi.`);
         } catch (err) {
-            alert(err.message);
+            await gagal("Gagal menghapus akun", err.message);
         } finally {
             setSubmitting(false);
         }

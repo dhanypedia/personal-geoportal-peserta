@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Box, Button, MenuItem, TextField, FormControlLabel, Switch, Typography, LinearProgress } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import { useSession } from "next-auth/react";
-import Swal from "sweetalert2";
 import { FASE, unggahDenganProgres, formatUkuran } from "../../../../../lib/unggahDenganProgres";
+import { berhasil, gagal, peringatan } from "../../../../../lib/notifikasi";
 
 const TambahData2D = ({ form, setForm, submitting, setSubmitting, onSuccess, onClose }) => {
   const { data: session } = useSession();
@@ -11,13 +11,13 @@ const TambahData2D = ({ form, setForm, submitting, setSubmitting, onSuccess, onC
 
   const handleCreate = async () => {
     if (!form.layer_name || !form.file) {
-      Swal.fire("Lengkapi form", "Nama layer dan file GeoJSON wajib diisi", "warning");
+      peringatan("Isian belum lengkap", "Nama layer dan berkas GeoJSON wajib diisi.");
       return;
     }
 
     const accessToken = session?.accessToken;
     if (!accessToken) {
-      Swal.fire("Gagal!", "Access token tidak tersedia.", "error");
+      gagal("Sesi tidak ditemukan", "Masuk ulang ke portal, lalu coba lagi.");
       return;
     }
 
@@ -54,11 +54,12 @@ const TambahData2D = ({ form, setForm, submitting, setSubmitting, onSuccess, onC
         throw new Error(result.message || result.error || "Gagal menyimpan layer");
       }
 
-      Swal.fire("Berhasil", result.message || `Layer "${result.data.layer_name}" berhasil disimpan`, "success");
+      // Dialog ditutup lebih dahulu, baru pemberitahuannya tampil.
       onClose();
       onSuccess();
+      await berhasil("Layer ditambahkan", result.message || `Layer "${result.data.layer_name}" berhasil disimpan.`);
     } catch (err) {
-      Swal.fire("Gagal!", err.message || "Terjadi kesalahan saat menyimpan", "error");
+      await gagal("Gagal menyimpan layer", err.message || "Terjadi kesalahan saat menyimpan");
     } finally {
       setUnggahan(null);
       setSubmitting(false);

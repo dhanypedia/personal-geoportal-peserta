@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Box, Typography, Button, CircularProgress, Alert, IconButton } from "@mui/material";
 import { Close, DeleteOutlined } from "@mui/icons-material";
+import { berhasil } from "../../../../../lib/notifikasi";
 
 const HapusData = ({ item, handleCloseDelete, getData, accessToken }) => {
     const [loading, setLoading] = useState(false);
@@ -37,9 +38,12 @@ const HapusData = ({ item, handleCloseDelete, getData, accessToken }) => {
                 throw new Error(result.message || "Gagal menghapus data");
             }
 
-            alert("Berhasil menghapus data 3D!");
+            // Modal ditutup lebih dahulu, baru pemberitahuannya tampil. Kalau
+            // urutannya dibalik, pemberitahuannya muncul di atas modal yang
+            // belum tertutup dan terlihat seperti menggantung.
             handleCloseDelete(); // tutup modal
             getData(); // refresh table katalog
+            await berhasil("Data 3D dihapus", `Model "${item.model_name || "ini"}" sudah tidak ada di katalog.`);
         } catch (err) {
             console.error("Error delete data:", err);
             setError(err.message || "Terjadi kesalahan saat menghapus data.");

@@ -1,6 +1,7 @@
 import { Delete, Download, Edit, Visibility } from '@mui/icons-material'
 import { Box, Chip, IconButton, Link, Paper, Table, TableBody, TableCell, TableHead, TableRow, Tooltip, Typography } from '@mui/material'
 import React from 'react'
+import { gagal } from '../../../../../lib/notifikasi'
 
 const TableData3D = ({filteredData, search, role, handleOpenDelete, handleOpenEdit, handleOpenPreview, accessToken}) => {
     
@@ -28,7 +29,7 @@ const TableData3D = ({filteredData, search, role, handleOpenDelete, handleOpenEd
             window.URL.revokeObjectURL(downloadUrl);
         } catch (error) {
             console.error('Error downloading file:', error);
-            alert('Gagal mendownload file. Pastikan Anda memiliki akses.');
+            gagal('Gagal mengunduh berkas', 'Pastikan Anda memiliki akses ke model ini.');
         }
     };
 

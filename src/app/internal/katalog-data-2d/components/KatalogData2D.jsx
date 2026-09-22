@@ -8,7 +8,7 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
-import Swal from "sweetalert2";
+import { berhasil, gagal, maklumat, tanyaHapus } from "../../../../../lib/notifikasi";
 import TambahData2D from "./TambahData2D";
 import UpdateData2D from "./UpdateData2D";
 import TableData2D from "./TableData2D";
@@ -30,15 +30,11 @@ export default function KatalogData2D({ accessToken, role }) {
   };
 
   const handleDelete = async (row) => {
-    const confirm = await Swal.fire({
-      title: `Hapus "${row.layer_name}"?`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Ya, hapus",
-      cancelButtonText: "Batal",
-      confirmButtonColor: "#DC2626",
-    });
-    if (!confirm.isConfirmed) return;
+    const setuju = await tanyaHapus(
+      `Hapus "${row.layer_name}"?`,
+      "Layer beserta tabelnya di GeoServer ikut terhapus. Tindakan ini tidak dapat dibatalkan."
+    );
+    if (!setuju) return;
     try {
       const res = await fetch(`/portal/api/katalog-data-2d/delete?data_2d_id=${row.data_2d_id}`,
         {
@@ -53,16 +49,16 @@ export default function KatalogData2D({ accessToken, role }) {
         throw new Error(result.message || result.error || "Gagal menghapus layer");
       }
 
-      Swal.fire("Terhapus", result.message || "Layer berhasil dihapus", "success");
+      await berhasil("Layer dihapus", result.message || `Layer "${row.layer_name}" berhasil dihapus.`);
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      Swal.fire("Gagal!", err.message || "Terjadi kesalahan saat menghapus", "error");
+      await gagal("Gagal menghapus layer", err.message || "Terjadi kesalahan saat menghapus");
     }
   };
 
   const handleDownload = async (row) => {
     if (!row.wfs_url) {
-      alert("URL WFS tidak ditemukan untuk layer ini.");
+      maklumat("Alamat WFS tidak ada", "Layer ini belum diterbitkan di GeoServer, jadi belum dapat diunduh.");
       return;
     }
 
@@ -102,7 +98,7 @@ export default function KatalogData2D({ accessToken, role }) {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      alert(error.message);
+      await gagal("Gagal mengunduh layer", error.message);
     }
   };
 

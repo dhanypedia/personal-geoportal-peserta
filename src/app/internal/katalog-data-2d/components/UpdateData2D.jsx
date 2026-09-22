@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import {
     Box, TextField, MenuItem, FormControlLabel, Switch, Button, Stack, Typography,
 } from "@mui/material";
-import Swal from "sweetalert2";
+import { berhasil, gagal } from "../../../../../lib/notifikasi";
 
 export default function UpdateData2D({ row, submitting, setSubmitting, onClose, onSuccess }) {
     const { data: session } = useSession();
@@ -28,7 +28,7 @@ export default function UpdateData2D({ row, submitting, setSubmitting, onClose, 
 
         const accessToken = session?.accessToken;
         if (!accessToken) {
-            Swal.fire("Gagal!", "Access token tidak tersedia.", "error");
+            await gagal("Sesi tidak ditemukan", "Masuk ulang ke portal, lalu coba lagi.");
             return;
         }
 
@@ -56,11 +56,12 @@ export default function UpdateData2D({ row, submitting, setSubmitting, onClose, 
                 throw new Error(result.message || result.error || "Gagal update layer");
             }
 
-            Swal.fire("Berhasil", result.message || "Layer berhasil diupdate", "success");
+            // Dialog ditutup lebih dahulu, baru pemberitahuannya tampil.
             onSuccess?.();
             onClose?.();
+            await berhasil("Layer diperbarui", result.message || `Pengaturan "${row.layer_name}" tersimpan.`);
         } catch (err) {
-            Swal.fire("Gagal!", err.message || "Terjadi kesalahan saat update", "error");
+            await gagal("Gagal memperbarui layer", err.message || "Terjadi kesalahan saat update");
         } finally {
             setSubmitting(false);
         }
