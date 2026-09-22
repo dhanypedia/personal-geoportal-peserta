@@ -1,9 +1,10 @@
 -- Seed akun super admin. Ganti dua penanda di blok DO di bawah, lalu jalankan.
---
--- Buat hash dulu di terminal, karena bcrypt tidak ada di PostgreSQL:
---   node scripts/hash-password.mjs
--- Hasilnya satu baris berawalan $2b$12$, dan kata sandi aslinya tidak masuk riwayat
--- terminal. Kalau tabel users belum ada, jalankan sql/01-schema.sql lebih dahulu.
+-- SQL biasa tanpa meta-command, jadi bisa ditempel apa adanya ke SQL Editor Supabase.
+
+-- Buat hash dulu di halaman Kit Identitas Peserta (langkah 3), atau dengan
+-- perintah `node scripts/hash-password.mjs` di folder proyek. Keduanya sama
+-- sah, karena bcrypt tidak tersedia di dalam PostgreSQL. Hasilnya 60 karakter
+-- berawalan $2b$12$.
 
 DO $$
 DECLARE
@@ -18,7 +19,8 @@ BEGIN
     END IF;
 
     IF hash_admin LIKE '%<ISI_HASH%' THEN
-        RAISE EXCEPTION 'Hash belum diisi. Buat dulu dengan: node scripts/hash-password.mjs';
+        RAISE EXCEPTION
+            'Hash belum diisi. Buat dulu di halaman Kit Identitas Peserta (langkah 3) atau dengan node scripts/hash-password.mjs, lalu tempel hasilnya di sini.';
     END IF;
 
     -- Menolak nilai yang bukan hash bcrypt. Tanpa ini, salah paste kata sandi
@@ -44,8 +46,10 @@ BEGIN
     RAISE NOTICE 'Akun super admin % siap dipakai.', lower(btrim(email_admin));
 END $$;
 
--- Verifikasi. Harapan: tepat satu baris, is_active true, dan awalan_hash berisi hash
--- bcrypt ($2a$ atau $2b$), bukan kata sandi asli.
+-- Bila tabel users belum ada, jalankan sql/01-schema.sql lebih dahulu.
+
+-- Verifikasi. Harapan: tepat satu baris, is_active true, dan awalan_hash berisi
+-- hash bcrypt ($2a$ atau $2b$), bukan kata sandi asli.
 
 SELECT 'Akun super admin' AS bagian;
 SELECT user_id, name, email, role, is_active, left(password, 7) AS awalan_hash
