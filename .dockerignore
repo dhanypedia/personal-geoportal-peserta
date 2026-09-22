@@ -2,9 +2,19 @@ node_modules
 .next
 .git
 .gitignore
-.local
+.env*
 npm-debug.log*
 README.md
 .vscode
 .dockerignore
 Dockerfile
+
+# Folder runtime, dibuat container saat docker compose dijalankan.
+# Isinya bukan bagian dari aplikasi, dan sebagian dimiliki root, sehingga
+# pengguna biasa tidak dapat membacanya. Tanpa diabaikan di sini, docker build
+# ikut mengirimnya sebagai build context dan gagal dengan:
+#   error from sender: open geoserver-data/csw: permission denied
+geoserver-data/
+data/
+tls/
+certbot-webroot/

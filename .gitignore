@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.worktrees/
 
 # next.js
 /.next/
@@ -31,7 +32,8 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env
+.env*
+!.env.example
 
 # vercel
 .vercel
@@ -45,3 +47,20 @@ next-env.d.ts
 /public/data/models
 
 /data
+
+# Data GeoServer dibuat di VM, bukan bagian dari source code
+/geoserver-data/
+
+# Sertifikat TLS dan direktori tantangan Let's Encrypt dibuat di VM,
+# bukan bagian dari source code.
+/tls/
+/certbot-webroot/
+
+# Catatan aktivitas server pengembangan. Dibuat saat menjalankan npm run dev,
+# dan isinya berubah setiap kali server dijalankan.
+#
+# Pola *.log menangkap seluruh berkas catatan, termasuk yang dibuat saat
+# menjalankan server pada port lain untuk keperluan pengujian. Tanpa pola ini,
+# berkas seperti dev3041.log ikut ter-commit dan ter-push tanpa disadari.
+dev.log
+*.log
