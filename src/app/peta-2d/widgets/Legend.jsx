@@ -5,7 +5,12 @@ import { Box, Paper, IconButton, Tooltip, Fade, Typography } from "@mui/material
 import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 
 
-const GEOSERVER_HOST = "https://matiur-geoportal.com";
+// GeoServer diproksikan pada domain yang sama di bawah /geoserver, jadi
+// alamatnya cukup diambil dari halaman yang sedang dibuka. Sebelumnya tertulis
+// domain pribadi instruktur, sehingga legenda peserta meminta gambar ke server
+// orang lain.
+const GEOSERVER_HOST =
+  typeof window !== "undefined" ? window.location.origin : "";
 
 function buildLegendUrl(layer_name) {
   if (!layer_name || !GEOSERVER_HOST) return null;

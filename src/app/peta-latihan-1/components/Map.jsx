@@ -14,10 +14,10 @@ const WMS_URL = "https://geoserver.bps.go.id/rw-kumuh-dki/wms"; // contoh: http:
 const WMS_LAYER_NAME = "rw-kumuh-dki:peta_rw_kumuh"; // contoh: geoportal:nama_layer
 
 // STEP 3 - WFS (harus full URL GetFeature, outputFormat=application/json)
-const WFS_URL = "https://matiur-geoportal.com/geoserver/geoportal/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=geoportal%3Ajalur_mrt_krl_lrt_257a7a50&maxFeatures=50&outputFormat=application%2Fjson";
+const WFS_URL = "http://IP_EKSTERNAL_VM/geoserver/geoportal/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=geoportal%3Ajalur_mrt_krl_lrt_257a7a50&maxFeatures=50&outputFormat=application%2Fjson";
 
 // STEP 4 - WCS
-const WCS_URL = "https://matiur-geoportal.com/geoserver/raster/wcs"; // contoh: http://localhost:8080/geoserver/geoportal/wcs
+const WCS_URL = "http://IP_EKSTERNAL_VM/geoserver/raster/wcs"; // contoh: http://localhost:8080/geoserver/geoportal/wcs
 const WCS_COVERAGE_ID = "raster:pleiades_clip"; // contoh: geoportal:nama_coverage
 const WCS_BBOX = "106.866403239,-6.297444585,106.873220747,-6.29267965"; // minx,miny,maxx,maxy - ganti sesuai cakupan data kamu
 
