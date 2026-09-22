@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 import { Layers, Delete, Search as SearchIcon } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
+import { Z_OVERLAY } from "../components/MapComponent";
 
 const CATALOG_LAYER = "/portal/api/katalog-data-2d/list-public";
 
@@ -124,6 +125,9 @@ export default function CatalogPanel({ open, map, addedLayersRef, onActiveLayers
         format: "image/png",
         transparent: true,
         version: "1.1.0",
+        // Selalu di atas basemap, berapa kali pun basemapnya diganti. Lihat
+        // Z_BASEMAP dan Z_OVERLAY pada MapComponent.
+        zIndex: Z_OVERLAY,
       });
       wmsLayer.addTo(map);
       addedLayersRef.current[item.data_2d_id] = wmsLayer;

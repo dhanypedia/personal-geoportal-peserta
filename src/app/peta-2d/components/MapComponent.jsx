@@ -31,6 +31,14 @@ const BASEMAPS = {
 const DEFAULT_BASEMAP = "jalan";
 const BUTTON_SIZE = 40;
 
+// Leaflet menyusun lapisan ubin berdasarkan z-index, dan bila z-index-nya
+// sama, yang menentukan adalah urutan pemasangan. Sebelum nilainya diatur,
+// mengganti basemap setelah layer 2D dinyalakan menaruh basemap baru itu di
+// atas layer 2D, sehingga layernya hilang di balik citra satelit. Nilai tetap
+// membuat urutannya tidak lagi bergantung pada kapan lapisannya dipasang.
+export const Z_BASEMAP = 1;
+export const Z_OVERLAY = 2;
+
 export default function MapComponent() {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -77,6 +85,7 @@ export default function MapComponent() {
       tileLayerRef.current = L.tileLayer(basemap.url, {
         attribution: basemap.attribution,
         maxZoom: 19,
+        zIndex: Z_BASEMAP,
       }).addTo(map);
 
       mapRef.current = map;

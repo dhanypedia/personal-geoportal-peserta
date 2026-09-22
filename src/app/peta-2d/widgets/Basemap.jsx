@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { Box, Paper, IconButton, Tooltip, Fade } from "@mui/material";
 import LayersIcon from "@mui/icons-material/Layers";
+import { Z_BASEMAP } from "../components/MapComponent";
 
 export default function Basemap({
   L,
@@ -14,6 +15,7 @@ export default function Basemap({
   buttonSize = 40,
 }) {
   const [basemapOpen, setBasemapOpen] = useState(false);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
 
   const handleChangeBasemap = useCallback(
     (key) => {
@@ -32,6 +34,10 @@ export default function Basemap({
       tileLayerRef.current = L.tileLayer(bm.url, {
         attribution: bm.attribution,
         maxZoom: 19,
+        // Nilainya tetap, bukan mengikuti urutan pemasangan, supaya basemap
+        // yang baru tidak menimpa layer 2D yang sedang aktif. Lihat
+        // Z_BASEMAP pada MapComponent.
+        zIndex: Z_BASEMAP,
       }).addTo(map);
 
       onChangeBasemap(key);
@@ -42,11 +48,25 @@ export default function Basemap({
 
   return (
     <Box sx={{ position: "relative" }}>
-      <Tooltip title="Pilih Basemap" placement="left">
+      {/* Tooltip dimatikan selama daftarnya terbuka. Letaknya persis di kiri
+          tombol, yaitu di atas daftar pilihannya sendiri, sehingga klik pada
+          salah satu opsi akan disambut tooltip itu dan tidak sampai ke
+          opsinya. */}
+      <Tooltip
+        title="Pilih Basemap"
+        placement="left"
+        open={tooltipOpen && !basemapOpen}
+        onOpen={() => setTooltipOpen(true)}
+        onClose={() => setTooltipOpen(false)}
+        arrow
+      >
         <Paper
           elevation={3}
           component={IconButton}
-          onClick={() => setBasemapOpen((o) => !o)}
+          onClick={() => {
+            setBasemapOpen((o) => !o);
+            setTooltipOpen(false);
+          }}
           sx={{
             width: buttonSize,
             height: buttonSize,
