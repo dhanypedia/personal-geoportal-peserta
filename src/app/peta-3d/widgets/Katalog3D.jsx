@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Box, Tooltip } from "@mui/material";
-import { LayersOutlined, MenuOpen } from "@mui/icons-material";
-import CatalogPanel from "./CatalogPanel";
+import { ViewInAr, MenuOpen } from "@mui/icons-material";
+import CatalogPanel3D from "./CatalogPanel3D";
 
 const tooltipSlotProps = {
   tooltip: {
@@ -21,8 +21,7 @@ const tooltipSlotProps = {
   arrow: { sx: { color: "#0F2A24" } },
 };
 
-// Tombol pembuka katalog layer publik beserta panelnya.
-export default function Katalog({ map, addedLayersRef, buttonSize = 48 }) {
+export default function Katalog3D({ viewer, addedModelsRef, buttonSize = 48 }) {
   const [open, setOpen] = useState(false);
   const [tooltipOpen, setTooltipOpen] = useState(false);
 
@@ -41,7 +40,7 @@ export default function Katalog({ map, addedLayersRef, buttonSize = 48 }) {
       }}
     >
       <Tooltip
-        title="Katalog Layer"
+        title="Katalog Model 3D"
         open={tooltipOpen}
         placement="right"
         arrow
@@ -66,17 +65,21 @@ export default function Katalog({ map, addedLayersRef, buttonSize = 48 }) {
             transition: "background-color 0.2s",
             "&:hover": { backgroundColor: open ? "#16332B" : "#e9e2cf" },
           }}
-          id="katalog-layer-public"
+          id="katalog-model-3d-public"
         >
           {open ? (
             <MenuOpen sx={{ fontSize: 22, color: "#F4EFE2" }} />
           ) : (
-            <LayersOutlined sx={{ fontSize: 22, color: "#0F2A24" }} />
+            <ViewInAr sx={{ fontSize: 22, color: "#0F2A24" }} />
           )}
         </Box>
       </Tooltip>
 
-      <CatalogPanel open={open} map={map} addedLayersRef={addedLayersRef} />
+      <CatalogPanel3D
+        open={open}
+        viewer={viewer}
+        addedModelsRef={addedModelsRef}
+      />
     </Box>
   );
 }

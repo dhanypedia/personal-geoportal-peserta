@@ -54,7 +54,7 @@ export function addGeojson(map) {
                 Kategori: ${feature.properties.kategori}
             `);
         }
-    }); 
+    });
 
     return geojsonLayer;
 }

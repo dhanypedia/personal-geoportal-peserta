@@ -1,43 +1,34 @@
-substitutions:
-  _REGION: asia-southeast2
-  _REPOSITORY: katalog-images
-  # _IMAGE_NAME, _VM_NAME, _VM_ZONE, _VM_APP_DIR, dan _CESIUM_ION_TOKEN sengaja
-  # tidak diberi nilai bawaan. Semuanya wajib diisi pada substitution variable
-  # trigger. Tanpa nilai bawaan, build berhenti dengan pesan yang jelas daripada
-  # diam-diam memakai satu nama image bersama dan menimpa image milik asisten
-  # lain di Artifact Registry.
-
 steps:
-  - name: gcr.io/cloud-builders/docker
+  # 1. Build image dari Dockerfile
+  - name: 'gcr.io/cloud-builders/docker'
     args:
-      - build
-      # Diteruskan ke ARG di Dockerfile, lalu ditanam ke berkas hasil build.
-      # Diperlukan karena komponen peta 3D memakai token ini di sisi klien.
-      - --build-arg
-      - NEXT_PUBLIC_CESIUM_ION_TOKEN=${_CESIUM_ION_TOKEN}
-      - -t
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:$SHORT_SHA
-      - .
+      - 'build'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_CESIUM_ION_TOKEN=$_CESIUM_TOKEN'
+      - '-t'
+      - 'asia-southeast2-docker.pkg.dev/project-2cd93730-d9d7-41ee-820/katalog-images/nextjs-app:latest'
+      - '.'
 
-  - name: gcr.io/cloud-builders/docker
+  # 2. Push image ke Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
     args:
-      - push
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:$SHORT_SHA
+      - 'push'
+      - 'asia-southeast2-docker.pkg.dev/project-2cd93730-d9d7-41ee-820/katalog-images/nextjs-app:latest'
 
-  - name: gcr.io/cloud-builders/gcloud
-    entrypoint: bash
+  # 3. SSH ke VM, pull image terbaru, restart container nextjs
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
     args:
-      - -c
+      - '-c'
       - |
-        gcloud compute ssh "${_VM_NAME}" \
-          --zone="${_VM_ZONE}" \
+        gcloud compute ssh latihan-web-gis \
+          --zone=asia-southeast2-b \
           --tunnel-through-iap \
           --quiet \
-          --command="sudo gcloud auth print-access-token | sudo docker login -u oauth2accesstoken --password-stdin https://${_REGION}-docker.pkg.dev && cd '${_VM_APP_DIR}' && sudo sed -i 's|^NEXTJS_IMAGE=.*|NEXTJS_IMAGE=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:$SHORT_SHA|' .env && sudo -H docker compose pull nextjs && sudo -H docker compose up -d && sudo -H docker compose exec -T nginx nginx -s reload"
+          --command="gcloud auth configure-docker asia-southeast2-docker.pkg.dev --quiet && cd /home/matiurari0/app && docker compose pull nextjs && docker compose up -d --force-recreate nextjs"
 
 images:
-  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:$SHORT_SHA
+  - 'asia-southeast2-docker.pkg.dev/project-2cd93730-d9d7-41ee-820/katalog-images/nextjs-app:latest'
 
 options:
-  dynamicSubstitutions: true
   logging: CLOUD_LOGGING_ONLY

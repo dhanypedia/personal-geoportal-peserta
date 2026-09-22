@@ -6,7 +6,7 @@ import LayersIcon from "@mui/icons-material/Layers";
 import ApartmentIcon from "@mui/icons-material/Apartment";
 import DatasetIcon from "@mui/icons-material/Dataset";
 
-import WebPublicLayout from "./web-public/layout";
+import WebPublicLayout from "./peta-2d/layout";
 
 const STATS = [
   { icon: <DatasetIcon fontSize="small" />, value: "500+", label: "Dataset Spasial" },

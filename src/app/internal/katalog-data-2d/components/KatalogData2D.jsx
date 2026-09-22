@@ -14,20 +14,96 @@ import UpdateData2D from "./UpdateData2D";
 import TableData2D from "./TableData2D";
 import PreviewData2D from "./PreviewData2D";
 
-export default function KatalogData2D() {
-  const { data: session } = useSession();
+export default function KatalogData2D({ accessToken, role }) {
   const [search, setSearch] = useState("");
   const [openCreate, setOpenCreate] = useState(false);
   const [openUpdate, setOpenUpdate] = useState(false);
-  const [openPreview, setOpenPreview] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [form, setForm] = useState({ layer_name: "", file: null, akses: "private", editable: "false" });
+  const [openPreview, setOpenPreview] = useState(false);
 
   const handleOpenCreate = () => {
     setForm({ layer_name: "", file: null, akses: "private", editable: "false" });
     setOpenCreate(true);
+  };
+
+  const handleDelete = async (row) => {
+    const confirm = await Swal.fire({
+      title: `Hapus "${row.layer_name}"?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Ya, hapus",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "#DC2626",
+    });
+    if (!confirm.isConfirmed) return;
+    try {
+      const res = await fetch(`/portal/api/katalog-data-2d/delete?data_2d_id=${row.data_2d_id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.message || result.error || "Gagal menghapus layer");
+      }
+
+      Swal.fire("Terhapus", result.message || "Layer berhasil dihapus", "success");
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      Swal.fire("Gagal!", err.message || "Terjadi kesalahan saat menghapus", "error");
+    }
+  };
+
+  const handleDownload = async (row) => {
+    if (!row.wfs_url) {
+      alert("URL WFS tidak ditemukan untuk layer ini.");
+      return;
+    }
+
+    // Nama file aman untuk filesystem (layer_name biasanya "workspace:table")
+    const safeFilename = (row.layer_name || "data_layer").replace(/[:/\\?*"<>|]/g, "_");
+
+    try {
+      // wfs_url sekarang mengarah ke API proxy internal (bukan langsung ke
+      // GeoServer). Proxy yang menentukan endpoint GeoServer sebenarnya dan
+      // mengecek akses public/private berdasarkan token ini, jadi kita fetch
+      // langsung ke sana tanpa lewat route download-data lagi.
+      const response = await fetch(row.wfs_url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        let message = "Gagal mendownload file.";
+        try {
+          const errData = await response.json();
+          message = errData.message || errData.error || message;
+        } catch {
+          // Respons bukan JSON (mis. error mentah dari GeoServer), pakai pesan default
+        }
+        throw new Error(message);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${safeFilename}.geojson`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert(error.message);
+    }
   };
 
   const handleUpdate = (row) => {
@@ -35,92 +111,7 @@ export default function KatalogData2D() {
     setOpenUpdate(true);
   };
 
-  const handlePreview = (row) => {
-    setSelectedRow(row);
-    setOpenPreview(true);
-  };
-
-  const handleDownload = async (row) => {
-    const accessToken = session?.accessToken;
-    if (!accessToken) {
-      Swal.fire("Gagal!", "Access token tidak tersedia.", "error");
-      return;
-    }
-
-    // WFS diambil lewat proxy, bukan langsung ke GeoServer, supaya layer
-    // private yang hanya dapat dibaca ADMIN ikut terunduh.
-    const url = row.data_2d_id
-      ? `/portal/api/katalog-data-2d/proxy?type=wfs&data_2d_id=${row.data_2d_id}`
-      : row.wfs_url;
-
-    if (!url) {
-      Swal.fire("Gagal!", "URL WFS tidak tersedia untuk layer ini.", "error");
-      return;
-    }
-
-    const safeFilename = (row.layer_name || "data_layer").replace(/[:/\\?*"<>|]/g, "_");
-
-    try {
-      const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || "Gagal mengunduh layer");
-      }
-
-      const blob = await response.blob();
-      const objectUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = `${safeFilename}.geojson`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(objectUrl);
-    } catch (err) {
-      Swal.fire("Gagal!", err.message, "error");
-    }
-  };
-
-  const handleDelete = async (row) => {
-      const confirm = await Swal.fire({
-        title: `Hapus "${row.layer_name}"?`,
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: "Ya, hapus",
-        cancelButtonText: "Batal",
-        confirmButtonColor: "#DC2626",
-      });
-      if (!confirm.isConfirmed) return;
-
-      const accessToken = session?.accessToken;
-      if (!accessToken) {
-        Swal.fire("Gagal!", "Access token tidak tersedia.", "error");
-        return;
-      }
-
-      try {
-        const res = await fetch(`/portal/api/katalog-data-2d/delete?data_2d_id=${row.data_2d_id}`,
-          {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${accessToken}` },
-          }
-        );
-
-        const result = await res.json();
-
-        if (!res.ok) {
-          throw new Error(result.message || result.error || "Gagal menghapus layer");
-        }
-
-        Swal.fire("Terhapus", result.message || "Layer berhasil dihapus", "success");
-        setRefreshKey((k) => k + 1);
-      } catch (err) {
-        Swal.fire("Gagal!", err.message || "Terjadi kesalahan saat menghapus", "error");
-      }
-  };
+  const handlePreview = (row) => { setSelectedRow(row); setOpenPreview(true); };
 
   return (
     <Box>
@@ -161,16 +152,10 @@ export default function KatalogData2D() {
       />
 
       <Paper sx={{ borderRadius: 4, overflow: "hidden", border: "1px solid #EEF0F4", boxShadow: "0 1px 2px rgba(16,24,40,0.06)" }}>
-        <TableData2D
-          key={refreshKey}
-          search={search}
-          onDelete={handleDelete}
-          onUpdate={handleUpdate}
-          onPreview={handlePreview}
-          onDownload={handleDownload}
-        />
+        <TableData2D key={refreshKey} search={search} onDelete={handleDelete} onUpdate={handleUpdate} onDownload={handleDownload} accessToken={accessToken} role={role} onPreview={handlePreview} />
       </Paper>
 
+      {/* Dialog Tambah Layer */}
       <Dialog
         open={openCreate}
         onClose={() => !submitting && setOpenCreate(false)}
@@ -196,6 +181,7 @@ export default function KatalogData2D() {
         </DialogActions>
       </Dialog>
 
+      {/* Dialog Update Layer (akses & editable) */}
       <Dialog
         open={openUpdate}
         onClose={() => !submitting && setOpenUpdate(false)}
@@ -203,7 +189,7 @@ export default function KatalogData2D() {
         maxWidth="sm"
         slotProps={{ paper: { sx: { bgcolor: "#fff", color: "#1E1E2D", borderRadius: 3 } } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, color: "#1E1E2D" }}>Ubah Layer Data 2D</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, color: "#1E1E2D" }}>Update Layer</DialogTitle>
         <DialogContent>
           <UpdateData2D
             row={selectedRow}
@@ -215,12 +201,8 @@ export default function KatalogData2D() {
         </DialogContent>
       </Dialog>
 
-      <PreviewData2D
-        open={openPreview}
-        onClose={() => setOpenPreview(false)}
-        row={selectedRow}
-        accessToken={session?.accessToken}
-      />
+      {/* Preview Data 2D */}
+      <PreviewData2D open={openPreview} onClose={() => setOpenPreview(false)} row={selectedRow} accessToken={accessToken} />
     </Box>
   );
 }

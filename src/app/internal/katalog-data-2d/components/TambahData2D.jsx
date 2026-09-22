@@ -2,7 +2,7 @@ import { Box, Button, MenuItem, TextField, FormControlLabel, Switch } from "@mui
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import { useSession } from "next-auth/react";
 import Swal from "sweetalert2";
-import { bacaResponsJson } from "../../../../lib/bacaRespons";
+import { bacaResponsJson } from "../../../../../lib/bacaRespons";
 
 const TambahData2D = ({ form, setForm, submitting, setSubmitting, onSuccess, onClose }) => {
   const { data: session } = useSession();

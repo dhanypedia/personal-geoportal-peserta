@@ -33,7 +33,7 @@ BEGIN
         RAISE EXCEPTION 'Email tidak sah: %', email_admin;
     END IF;
 
-    INSERT INTO users (user_id, nama, email, password, role, is_active, created_at)
+    INSERT INTO users (user_id, name, email, password, role, is_active, created_at)
     VALUES (gen_random_uuid(), 'Super Admin', lower(btrim(email_admin)),
             hash_admin, 'super_admin', true, now())
     ON CONFLICT (email) DO UPDATE
@@ -48,6 +48,6 @@ END $$;
 -- bcrypt ($2a$ atau $2b$), bukan kata sandi asli.
 
 SELECT 'Akun super admin' AS bagian;
-SELECT user_id, nama, email, role, is_active, left(password, 7) AS awalan_hash
+SELECT user_id, name, email, role, is_active, left(password, 7) AS awalan_hash
 FROM users
 WHERE role = 'super_admin';

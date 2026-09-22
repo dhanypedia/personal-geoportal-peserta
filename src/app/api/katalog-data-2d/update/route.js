@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import { db } from "../../../../../lib/db";
+import { db } from "../../../../../lib/db"; // Sesuaikan path Prisma Client
 import { requireAuth } from "../../../../../lib/auth/verifyBearerToken";
 
-// Mengubah akses dan is_editable sebuah layer. Nilai yang sama harus
-// disampaikan ke tiga tempat, kalau tidak ketiganya bisa saling
-// bertentangan: metadata featureType, ACL layer, dan baris katalog.
 export async function PATCH(request) {
-    const { error, status } = requireAuth(request, "admin");
+    // 1. Validasi Autentikasi
+    const { payload, error, status } = requireAuth(request, "admin");
     if (error) {
         return NextResponse.json({ message: error }, { status });
     }
@@ -37,6 +35,7 @@ export async function PATCH(request) {
             return NextResponse.json({ error: "Nilai editable harus boolean" }, { status: 400 });
         }
 
+        // 2. Ambil data existing dari katalog
         const existing = await db.katalog_data_2d.findUnique({
             where: { data_2d_id },
         });
@@ -45,7 +44,7 @@ export async function PATCH(request) {
             return NextResponse.json({ error: "Layer tidak ditemukan di katalog" }, { status: 404 });
         }
 
-        // layer_name disimpan dalam format "workspace:tableName".
+        // layer_name disimpan dalam format "workspace:tableName"
         const [workspace, tableName] = existing.layer_name.split(":");
         if (!workspace || !tableName) {
             return NextResponse.json(
@@ -64,7 +63,8 @@ export async function PATCH(request) {
             `${process.env.GEOSERVER_USERNAME}:${process.env.GEOSERVER_PASSWORD}`
         ).toString("base64");
 
-        // Metadata hanya perlu dikirim ulang bila is_editable benar-benar berubah.
+        // 3. Update metadata "disable.wfs.transactions" di featureType GeoServer
+        //    (hanya jika field editable memang dikirim & berubah)
         if (editable !== undefined && editable !== existing.is_editable) {
             await updateGeoServerFeatureTypeEditable({
                 geoserverUrl,
@@ -76,6 +76,8 @@ export async function PATCH(request) {
             });
         }
 
+        // 4. Update ACL security rule (read/write) di GeoServer
+        //    Selalu di-refresh ulang berdasarkan kombinasi akses & editable terbaru
         await updateGeoServerLayerSecurity({
             geoserverUrl,
             workspace: workspaceEnv,
@@ -85,6 +87,7 @@ export async function PATCH(request) {
             auth,
         });
 
+        // 5. Update record di tabel katalog_data_2d
         const updated = await db.katalog_data_2d.update({
             where: { data_2d_id },
             data: {
@@ -114,9 +117,11 @@ export async function PATCH(request) {
     }
 }
 
-// Menimpa flag "disable.wfs.transactions" pada metadata featureType.
-// FeatureType diambil dulu (GET) lalu dikirim balik (PUT) supaya field lain
-// tidak ikut terhapus oleh badan permintaan yang hanya berisi metadata.
+/**
+ * Update flag "disable.wfs.transactions" pada metadata featureType di GeoServer.
+ * Mengambil featureType existing dulu (GET) supaya field lain tidak tertimpa,
+ * lalu menimpa/menambah entry metadata yang relevan saja (PUT).
+ */
 async function updateGeoServerFeatureTypeEditable({
     geoserverUrl,
     workspace,
@@ -139,8 +144,7 @@ async function updateGeoServerFeatureTypeEditable({
     const current = await getRes.json();
     const rawEntries = current?.featureType?.metadata?.entry;
 
-    // GeoServer mengirim satu entry sebagai objek, bukan array, bila hanya
-    // ada satu metadata. Kedua bentuk harus diterima.
+    // Normalisasi: entry bisa berupa array atau objek tunggal tergantung jumlahnya
     const existingEntries = Array.isArray(rawEntries)
         ? rawEntries
         : rawEntries
@@ -174,9 +178,12 @@ async function updateGeoServerFeatureTypeEditable({
     }
 }
 
-// Menyusun ulang ACL layer. Rule lama dihapus lebih dulu supaya tidak ada
-// rule sisa dari keadaan sebelumnya (misalnya write yang tertinggal setelah
-// is_editable dimatikan), lalu rule baru dibuat sesuai kombinasi terbaru.
+/**
+ * Refresh ACL security rule (read/write) untuk sebuah layer di GeoServer.
+ * Rule lama dihapus dulu (DELETE, 404 diabaikan) supaya tidak ada rule "nyangkut"
+ * dari state sebelumnya (misal dari editable -> tidak editable), baru rule baru
+ * dibuat ulang (POST) sesuai kombinasi akses & editable terbaru.
+ */
 async function updateGeoServerLayerSecurity({
     geoserverUrl,
     workspace,
@@ -189,6 +196,7 @@ async function updateGeoServerLayerSecurity({
     const readKey = `${layerPattern}.r`;
     const writeKey = `${layerPattern}.w`;
 
+    // Hapus rule lama (abaikan error/404, karena rule mungkin belum ada)
     await Promise.all([
         fetch(`${geoserverUrl}/rest/security/acl/layers/${readKey}`, {
             method: "DELETE",
@@ -200,8 +208,6 @@ async function updateGeoServerLayerSecurity({
         }).catch(() => { }),
     ]);
 
-    // ADMIN dan ROLE_ANONYMOUS di sini peran milik GeoServer, bukan peran
-    // aplikasi. Aturan peran aplikasi ada di lib/auth/roles.js.
     const readRoles = akses === "private" ? ["ADMIN"] : ["ROLE_ANONYMOUS", "ADMIN"];
     const writeRoles = isEditable ? ["ADMIN"] : [];
 

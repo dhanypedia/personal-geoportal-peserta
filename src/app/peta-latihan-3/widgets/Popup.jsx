@@ -5,7 +5,7 @@ const markerIcon = new L.Icon({
     shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png"
 });
 
-export function addPopup(map){
+export function addPopup(map) {
 
     const marker = L.marker([], {
         icon: markerIcon
@@ -14,9 +14,9 @@ export function addPopup(map){
     marker.bindPopup(
         `<b>Monas</b>
         <br/> Lokasi: Jakarta Pusat<br/>
-        Kategori: Landmark` 
-     );
-     
-return marker;
+        Kategori: Landmark`
+    );
+
+    return marker;
 
 }

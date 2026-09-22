@@ -4,37 +4,40 @@ import { useCallback, useState } from "react";
 import { Box, Paper, IconButton, Tooltip, Fade } from "@mui/material";
 import LayersIcon from "@mui/icons-material/Layers";
 
-const BASEMAPS = {
-  satelit: {
-    label: "Citra Satelit",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: "Tiles &copy; Esri",
-  },
-  jalan: {
-    label: "Peta Jalan (OSM)",
-    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: "&copy; OpenStreetMap contributors",
-  },
-};
-
-export default function Basemap({ L, map, tileLayerRef, activeBasemap, onChangeBasemap }) {
+export default function Basemap({
+  L,
+  map,
+  tileLayerRef,
+  basemaps,
+  activeBasemap,
+  onChangeBasemap,
+  buttonSize = 40,
+}) {
   const [basemapOpen, setBasemapOpen] = useState(false);
 
   const handleChangeBasemap = useCallback(
     (key) => {
-      if (!L || !map) return;
+      if (!L || !map || key === activeBasemap) {
+        setBasemapOpen(false);
+        return;
+      }
+
+      const bm = basemaps[key];
+      if (!bm) return;
+
       if (tileLayerRef.current) {
         map.removeLayer(tileLayerRef.current);
       }
-      const basemap = BASEMAPS[key];
-      tileLayerRef.current = L.tileLayer(basemap.url, {
-        attribution: basemap.attribution,
+
+      tileLayerRef.current = L.tileLayer(bm.url, {
+        attribution: bm.attribution,
         maxZoom: 19,
       }).addTo(map);
+
       onChangeBasemap(key);
       setBasemapOpen(false);
     },
-    [L, map, tileLayerRef, onChangeBasemap]
+    [L, map, basemaps, activeBasemap, onChangeBasemap, tileLayerRef]
   );
 
   return (
@@ -45,8 +48,8 @@ export default function Basemap({ L, map, tileLayerRef, activeBasemap, onChangeB
           component={IconButton}
           onClick={() => setBasemapOpen((o) => !o)}
           sx={{
-            width: 40,
-            height: 40,
+            width: buttonSize,
+            height: buttonSize,
             borderRadius: 1.5,
             bgcolor: basemapOpen ? "#D98E3B" : "#0F2A24",
             color: basemapOpen ? "#0F2A24" : "#F4EFE2",
@@ -63,14 +66,15 @@ export default function Basemap({ L, map, tileLayerRef, activeBasemap, onChangeB
           sx={{
             position: "absolute",
             top: 0,
-            right: 48,
+            right: buttonSize + 8,
             width: 190,
             borderRadius: 2,
             bgcolor: "#F7F3E7",
             overflow: "hidden",
+            display: basemapOpen ? "block" : "none",
           }}
         >
-          {Object.entries(BASEMAPS).map(([key, bm]) => (
+          {Object.entries(basemaps).map(([key, bm]) => (
             <Box
               key={key}
               onClick={() => handleChangeBasemap(key)}

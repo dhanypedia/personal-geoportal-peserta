@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../../../lib/db";
 import { requireAuth } from "../../../../../lib/auth/verifyBearerToken";
-import { hasRequiredRole } from "../../../../../lib/auth/roles";
 
-// Parameter yang dipakai proxy sendiri, tidak boleh ikut diteruskan ke
-// GeoServer karena bukan bagian dari protokol WMS/WFS.
 const INTERNAL_PARAMS = ["data_2d_id", "type", "token"];
+const PRIVILEGED_ROLES = ["admin"]; // role yang selalu boleh akses layer private
 
-// Leaflet memuat tile WMS lewat <img>, sehingga tidak bisa menyertakan
-// header Authorization. Token karena itu boleh datang dari query string.
 function withBearerFromQuery(request, url) {
   if (request.headers.get("authorization")) return request;
   const token = url.searchParams.get("token");
@@ -19,13 +15,11 @@ function withBearerFromQuery(request, url) {
   return new Request(request.url, { method: request.method, headers });
 }
 
-// Meneruskan permintaan WMS/WFS ke GeoServer. Alamat GeoServer tidak pernah
-// dikirim ke browser, dan akses layer private diperiksa di sini.
 export async function GET(request) {
   const url = new URL(request.url);
 
   const dataId = url.searchParams.get("data_2d_id");
-  const type = url.searchParams.get("type");
+  const type = url.searchParams.get("type"); // "wms" | "wfs"
 
   if (!dataId || !type || !["wms", "wfs"].includes(type)) {
     return NextResponse.json(
@@ -45,6 +39,7 @@ export async function GET(request) {
     );
   }
 
+  // Hanya layer PRIVATE yang wajib punya token valid + cek kepemilikan/role.
   // Layer public tidak perlu autentikasi sama sekali.
   if (layer.akses === "private") {
     const authRequest = withBearerFromQuery(request, url);
@@ -53,11 +48,8 @@ export async function GET(request) {
       return NextResponse.json({ message: error }, { status });
     }
 
-    // Token lama hanya memuat klaim "id". Setelah lib/auth/jwt.js ikut
-    // menandatangani "user_id", keduanya bisa dipakai.
-    const pemilik = payload.user_id || payload.id;
-    const isOwner = layer.author === pemilik;
-    const isPrivileged = hasRequiredRole(payload.role, "admin");
+    const isOwner = layer.author === payload.user_id;
+    const isPrivileged = PRIVILEGED_ROLES.includes(payload.role);
 
     if (!isOwner && !isPrivileged) {
       return NextResponse.json(
@@ -67,19 +59,19 @@ export async function GET(request) {
     }
   }
 
-  // Endpoint GeoServer diturunkan dari layer_name (format "workspace:table").
+  // Derive endpoint GeoServer asli dari layer_name (format "workspace:table")
   const geoserverUrl = process.env.GEOSERVER_URL;
   const workspace = process.env.GEOSERVER_WORKSPACE;
 
   const target =
     type === "wfs"
       ? new URL(
-        `${geoserverUrl}/${workspace}/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=${layer.layer_name}&outputFormat=application/json`,
-      )
+          `${geoserverUrl}/${workspace}/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=${layer.layer_name}&outputFormat=application/json`,
+        )
       : new URL(`${geoserverUrl}/${workspace}/wms`);
 
-  // Parameter lain diteruskan apa adanya, misalnya bbox, width, dan height
-  // yang dibuat Leaflet untuk tiap tile.
+  // Teruskan query param tambahan dari request asli (bbox, width, height, dst,
+  // yang otomatis dibuat Leaflet untuk tiap tile WMS)
   url.searchParams.forEach((value, key) => {
     if (!INTERNAL_PARAMS.includes(key)) {
       target.searchParams.set(key, value);
@@ -90,8 +82,9 @@ export async function GET(request) {
     target.searchParams.set("LAYERS", layer.layer_name);
   }
 
-  // Layer private di GeoServer hanya dapat dibaca ADMIN, jadi proxy selalu
-  // membawa Basic Auth milik GeoServer, terlepas dari public atau private.
+  // GeoServer sendiri butuh credential ADMIN untuk layer private (lihat
+  // applyGeoServerLayerSecurity di route create), jadi proxy tetap selalu
+  // bawa Basic Auth ini ke GeoServer, terlepas dari akses public/private.
   const geoserverAuth = Buffer.from(
     `${process.env.GEOSERVER_USERNAME}:${process.env.GEOSERVER_PASSWORD}`,
   ).toString("base64");

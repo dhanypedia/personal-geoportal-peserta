@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../../../lib/db";
 
-// Daftar model 3D publik menurut jenis berkasnya. Dipisah karena berkas .glb
-// dan .ply ditampilkan oleh penampil yang berbeda, sehingga pemanggil API
-// perlu tahu mana yang harus dipakai tanpa menebak dari alamat berkasnya.
 export async function GET(request) {
     try {
         const data = await db.katalog_data_3d.findMany({
@@ -13,7 +10,7 @@ export async function GET(request) {
             },
             select: {
                 data_3d_id: true,
-                nama: true,
+                model_name: true,
                 akses: true,
                 url: true,
                 latitude: true,
@@ -21,7 +18,6 @@ export async function GET(request) {
                 heading: true,
                 pitch: true,
                 roll: true,
-                scale: true,
                 tipe_file: true,
                 users: {
                     select: {
@@ -30,6 +26,10 @@ export async function GET(request) {
                 }
             }
         });
+
+        if (!data) {
+            return NextResponse.json({ error: "Data 3D tidak ditemukan" }, { status: 400 });
+        }
 
         return NextResponse.json({ message: "Berhasil mengambil daftar katalog 3D", data: data }, { status: 200 })
     } catch (err) {

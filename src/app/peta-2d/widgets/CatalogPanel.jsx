@@ -2,9 +2,16 @@
 
 import { useEffect, useState, useRef } from "react";
 import {
-  Box, Button, InputBase, List, ListItem, ListItemText, Switch, Typography,
+  Box,
+  Button,
+  Typography,
+  InputBase,
+  Switch,
+  List,
+  ListItem,
+  ListItemText,
 } from "@mui/material";
-import { Layers, Search as SearchIcon } from "@mui/icons-material";
+import { Layers, Delete, Search as SearchIcon } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
 
 const CATALOG_LAYER = "/portal/api/katalog-data-2d/list-public";
@@ -42,8 +49,6 @@ const EarthSwitch = styled((props) => (
   },
 }));
 
-// Nama layer tersimpan sebagai "workspace:nama_tabel_8karakter". Bagian yang
-// dilihat pengunjung dibersihkan dari keduanya.
 const formatLayerName = (name) => {
   if (!name) return "";
   const withoutWorkspace = name.includes(":") ? name.split(":")[1] : name;
@@ -54,10 +59,7 @@ const formatLayerName = (name) => {
     .join(" ");
 };
 
-// Panel katalog layer publik pada peta. Hanya layer berakses public yang
-// ditampilkan, dan layer yang dinyalakan disimpan di addedLayersRef milik
-// MapComponent supaya ikut dibersihkan saat peta dilepas.
-export default function CatalogPanel({ open, map, addedLayersRef }) {
+export default function CatalogPanel({ open, map, addedLayersRef, onActiveLayersChange }) {
   const leafletRef = useRef(null);
   const [layers, setLayers] = useState([]);
   const [search, setSearch] = useState("");
@@ -67,8 +69,7 @@ export default function CatalogPanel({ open, map, addedLayersRef }) {
 
   useEffect(() => {
     (async () => {
-      const mod = await import("leaflet");
-      leafletRef.current = mod.default ?? mod;
+      leafletRef.current = (await import("leaflet")).default;
     })();
   }, []);
 
@@ -90,6 +91,19 @@ export default function CatalogPanel({ open, map, addedLayersRef }) {
     };
     fetchData();
   }, []);
+
+   useEffect(() => {
+    if (!onActiveLayersChange) return;
+    const active = layers
+      .filter((item) => activeIds.includes(item.data_2d_id))
+      .map((item) => ({
+        id: item.data_2d_id,
+        layer_name: item.layer_name,
+        wms_url: item.wms_url,
+        label: formatLayerName(item.layer_name),
+      }));
+    onActiveLayersChange(active);
+  }, [activeIds, layers, onActiveLayersChange]);
 
   const toggleLayer = (item) => {
     const L = leafletRef.current;
@@ -117,20 +131,11 @@ export default function CatalogPanel({ open, map, addedLayersRef }) {
     }
   };
 
-  const handleRemoveAll = () => {
-    if (!map) return;
-    Object.values(addedLayersRef.current).forEach((layer) => {
-      map.removeLayer(layer);
-    });
-    addedLayersRef.current = {};
-    setActiveIds([]);
-  };
-
   const filteredLayers = layers.filter((item) =>
-    formatLayerName(item.layer_name)
-      .toLowerCase()
-      .includes(search.toLowerCase()),
-  );
+  formatLayerName(item.layer_name)
+    .toLowerCase()
+    .includes(search.trim().toLowerCase())
+);
 
   return (
     <Box
@@ -155,6 +160,7 @@ export default function CatalogPanel({ open, map, addedLayersRef }) {
     >
       {open && (
         <>
+          {/* HEADER */}
           <Box
             sx={{
               display: "flex",
@@ -183,6 +189,7 @@ export default function CatalogPanel({ open, map, addedLayersRef }) {
             </Button>
           </Box>
 
+          {/* SEARCH */}
           <Box
             sx={{
               display: "flex",
@@ -209,6 +216,7 @@ export default function CatalogPanel({ open, map, addedLayersRef }) {
             />
           </Box>
 
+          {/* LIST */}
           <Box
             sx={{
               display: "flex",
@@ -240,15 +248,21 @@ export default function CatalogPanel({ open, map, addedLayersRef }) {
               }}
             >
               {loading ? (
-                <Typography sx={{ textAlign: "center", py: 3, fontSize: 13, color: "#0F2A24" }}>
+                <Typography
+                  sx={{ textAlign: "center", py: 3, fontSize: 13, color: "#0F2A24" }}
+                >
                   Memuat data...
                 </Typography>
               ) : error ? (
-                <Typography sx={{ textAlign: "center", py: 3, fontSize: 13, color: "#B3261E" }}>
+                <Typography
+                  sx={{ textAlign: "center", py: 3, fontSize: 13, color: "#B3261E" }}
+                >
                   Gagal memuat data. Silakan coba lagi nanti.
                 </Typography>
               ) : filteredLayers.length === 0 ? (
-                <Typography sx={{ textAlign: "center", py: 3, fontSize: 13, color: "#0F2A24" }}>
+                <Typography
+                  sx={{ textAlign: "center", py: 3, fontSize: 13, color: "#0F2A24" }}
+                >
                   Tidak ada layer ditemukan
                 </Typography>
               ) : (
@@ -263,13 +277,14 @@ export default function CatalogPanel({ open, map, addedLayersRef }) {
                     }
                     sx={{ borderBottom: "1px solid #E4DFCF" }}
                   >
-                    <ListItemText
-                      primary={formatLayerName(item.layer_name)}
-                      slotProps={{
+                   
+                <ListItemText
+                    primary={formatLayerName(item.layer_name)}
+                    slotProps={{
                         primary: {
-                          sx: { fontSize: 13.5, fontWeight: 500, color: "#000000" },
+                        sx: { fontSize: 13.5, fontWeight: 500, color: "#000000" },
                         },
-                      }}
+                    }}
                     />
                   </ListItem>
                 ))

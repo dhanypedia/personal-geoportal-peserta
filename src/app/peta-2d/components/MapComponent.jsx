@@ -3,14 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Box } from "@mui/material";
 
-import Home from "../peta/widgets/Home";
-import Locate from "../peta/widgets/Locate";
-import Basemap from "../peta/widgets/Basemap";
-import Search from "../peta/widgets/Search";
-import FullScreen from "../peta/widgets/FullScreen";
-import Bahasa from "../peta/widgets/Bahasa";
-import Zoom from "../peta/widgets/Zoom";
-import Katalog from "../peta/widgets/Katalog";
+import Home from "../widgets/Home";
+import Locate from "../widgets/Locate";
+import Search from "../widgets/Search";
+import FullScreen from "../widgets/FullScreen";
+import Bahasa from "../widgets/Bahasa";
+import Katalog from "../widgets/Katalog";
+import Legend from "../widgets/Legend";
+import Basemap from "../widgets/Basemap";
+import Zoom from "../widgets/Zoom";
 
 const HOME_COORDS = { lat: -6.1754, lng: 106.8272, zoom: 16 };
 
@@ -37,13 +38,12 @@ export default function MapComponent() {
   const tileLayerRef = useRef(null);
   const markerRef = useRef(null);
   const userMarkerRef = useRef(null);
-  // Layer katalog yang sedang dinyalakan disimpan di sini supaya dapat
-  // dilepas satu per satu dari panel katalog.
   const addedLayersRef = useRef({});
 
-  const [activeBasemap, setActiveBasemap] = useState(DEFAULT_BASEMAP);
   const [bahasa, setBahasa] = useState("ID");
   const [ready, setReady] = useState(false);
+  const [activeLayers, setActiveLayers] = useState([]);
+  const [activeBasemap, setActiveBasemap] = useState(DEFAULT_BASEMAP);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,6 +53,7 @@ export default function MapComponent() {
       await import("leaflet/dist/leaflet.css");
 
       if (cancelled || mapRef.current) return;
+
       delete L.Icon.Default.prototype._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl:
@@ -67,7 +68,7 @@ export default function MapComponent() {
       const map = L.map(mapContainerRef.current, {
         center: [HOME_COORDS.lat, HOME_COORDS.lng],
         zoom: HOME_COORDS.zoom,
-        zoomControl: false, 
+        zoomControl: false,
       });
 
       L.control.scale({ position: "bottomleft", imperial: false }).addTo(map);
@@ -110,9 +111,16 @@ export default function MapComponent() {
           gap: 0.75,
         }}
       >
-        <Box sx={{ display: "flex", gap: 5,  padding: 1, }}>
+        <Box sx={{ display: "flex", gap: 5, padding: 1 }}>
           <Home map={map} markerRef={markerRef} />
-          <Locate L={L} map={map} userMarkerRef={userMarkerRef} buttonSize={BUTTON_SIZE} tooltip="left" />
+          <Locate
+            L={L}
+            map={map}
+            userMarkerRef={userMarkerRef}
+            buttonSize={BUTTON_SIZE}
+            tooltip="left"
+          />
+          
           <FullScreen buttonSize={BUTTON_SIZE} tooltip="bottom" />
           <Bahasa
             buttonSize={BUTTON_SIZE}
@@ -126,30 +134,7 @@ export default function MapComponent() {
           <Search L={L} map={map} markerRef={markerRef} />
         </Box>
       </Box>
-      <Box
-        sx={{
-          position: "absolute",
-          bottom: 90,
-          right: 16,
-          zIndex: 1000,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 3,
-        }}
-      >
-        <Basemap
-          L={L}
-          map={map}
-          tileLayerRef={tileLayerRef}
-          activeBasemap={activeBasemap}
-          onChangeBasemap={setActiveBasemap}
-        />
-        <Zoom map={map} buttonSize={BUTTON_SIZE} />
-        
-      </Box>
 
-      {/* Tombol dan panel katalog layer publik, di sisi kiri atas peta. */}
       <Box
         sx={{
           position: "absolute",
@@ -158,7 +143,37 @@ export default function MapComponent() {
           zIndex: 1000,
         }}
       >
-        <Katalog map={map} addedLayersRef={addedLayersRef} buttonSize={BUTTON_SIZE} />
+        <Katalog
+          map={map}
+          addedLayersRef={addedLayersRef}
+          buttonSize={BUTTON_SIZE}
+          onActiveLayersChange={setActiveLayers}
+        />
+      </Box>
+
+      <Box
+        sx={{
+          position: "absolute",
+          bottom: { xs: 24, md: 20 },
+          right: { xs: 24, md: 20 },
+          zIndex: 1000,
+          gap: 2, 
+          padding: 2,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <Legend activeLayers={activeLayers} dropdownSide="left" />
+        <Basemap
+            L={L}
+            map={map}
+            tileLayerRef={tileLayerRef}
+            basemaps={BASEMAPS}
+            activeBasemap={activeBasemap}
+            onChangeBasemap={setActiveBasemap}
+            buttonSize={BUTTON_SIZE}
+          />
+        <Zoom map={map} buttonSize={BUTTON_SIZE} />
       </Box>
     </Box>
   );

@@ -7,33 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Kolom katalog_data_3d.scale dan katalog_data_3d.tipe_file sempat tidak
-// tercantum di berkas ini walaupun sudah ada di database. Akibatnya Prisma
-// menolak membacanya dengan "Unknown field", sehingga kolom itu tidak dapat
-// dipakai aplikasi. Keduanya sudah ditambahkan di bawah.
-//
-// CATATAN tentang users.created_at
-//
-// Kolom itu sengaja TIDAK dicantumkan di sini, walaupun ada di
-// sql/01-schema.sql. Alasannya, sebagian database dibuat tanpa kolom itu,
-// dan Prisma menolak seluruh query bila modelnya memuat kolom yang tidak ada:
-//
-//   column "created_at" does not exist
-//
-// Kolom yang ada di database tetapi tidak ada di model tidak menimbulkan
-// masalah, karena Prisma hanya menyebut kolom yang dikenalinya. Jadi dengan
-// tidak mencantumkannya, berkas ini bekerja pada database yang punya kolom
-// itu maupun yang tidak.
-//
-// Nilai created_at tetap terisi otomatis oleh DEFAULT now() pada database.
-
 model users {
   user_id         String            @id(map: "users_pk") @db.VarChar
   email           String            @unique(map: "users_unique") @db.VarChar
   password        String?           @db.VarChar
   is_active       Boolean           @default(false)
   role            String?           @db.VarChar
-  nama            String?           @db.VarChar
+  name            String?           @db.VarChar
   katalog_data_2d katalog_data_2d[]
   katalog_data_3d katalog_data_3d[]
 }
@@ -46,24 +26,22 @@ model katalog_data_2d {
   wms_url     String?  @db.VarChar
   wfs_url     String?  @db.VarChar
   author      String?  @db.VarChar
+  layer_alias String?  @db.VarChar
   users       users?   @relation(fields: [author], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "katalog_data_2d_users_fk")
 }
 
 model katalog_data_3d {
   data_3d_id String  @id(map: "katalog_data_3d_pk") @db.VarChar
   author     String? @db.VarChar
-  nama       String? @db.VarChar
+  model_name String? @db.VarChar
   akses      String? @db.VarChar
   url        String? @db.VarChar
   latitude   Float?
   longitude  Float?
-  // heading, pitch, dan roll disimpan sebagai double precision di database,
-  // sedangkan tipe Int di Prisma hanya menampung bilangan bulat. Sudah
-  // dicocokkan menjadi Float supaya sudut pecahan tidak terpotong.
-  heading    Float?
-  pitch      Float?
-  roll       Float?
-  scale      Float?
+  heading    Int?
+  pitch      Int?
+  roll       Int?
+  scale      Int?
   tipe_file  String? @db.VarChar
   users      users?  @relation(fields: [author], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "katalog_data_3d_users_fk")
 }

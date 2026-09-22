@@ -54,11 +54,11 @@ FROM information_schema.columns
 WHERE table_schema = 'public'
   AND is_nullable = 'YES'
   AND (table_name, column_name) IN (
-      ('users', 'nama'), ('users', 'email'), ('users', 'password'),
+      ('users', 'name'), ('users', 'email'), ('users', 'password'),
       ('users', 'role'), ('users', 'is_active'), ('users', 'created_at'),
       ('katalog_data_2d', 'layer_name'), ('katalog_data_2d', 'akses'),
       ('katalog_data_2d', 'is_editable'),
-      ('katalog_data_3d', 'nama'), ('katalog_data_3d', 'akses'),
+      ('katalog_data_3d', 'model_name'), ('katalog_data_3d', 'akses'),
       ('katalog_data_3d', 'tipe_file')
   )
 ORDER BY table_name, column_name;

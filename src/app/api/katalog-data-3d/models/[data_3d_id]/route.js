@@ -66,11 +66,7 @@ export async function GET(request, { params }) {
             contentType = "model/gltf-binary";
         } else if (ext === ".gltf") {
             contentType = "model/gltf+json";
-        } else if (ext === ".ply") {
-            // Gaussian Splat dibaca sebagai biner mentah oleh pustaka di browser.
-            contentType = "application/octet-stream";
         } else if (ext === ".zip") {
-            // Berkas lama dari sebelum format .ply dipakai.
             contentType = "application/zip";
         }
 

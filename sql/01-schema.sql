@@ -4,7 +4,7 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS users (
     user_id     uuid         PRIMARY KEY,
-    nama        varchar(100) NOT NULL,
+    name        varchar(100) NOT NULL,
     email       varchar(150) NOT NULL,
     password    varchar(255) NOT NULL,
     role        varchar(20)  NOT NULL DEFAULT 'viewer',
@@ -29,6 +29,9 @@ CREATE TABLE IF NOT EXISTS katalog_data_2d (
     wms_url     text,
     wfs_url     text,
     author      uuid,
+    -- Alias layer untuk legenda peta. Boleh kosong, dan bila kosong aplikasi
+    -- memakai layer_name. Ditambahkan setelah aplikasi memakainya.
+    layer_alias varchar(150),
 
     CONSTRAINT katalog_data_2d_layer_name_key UNIQUE (layer_name),
     CONSTRAINT katalog_data_2d_akses_valid
@@ -41,15 +44,15 @@ CREATE TABLE IF NOT EXISTS katalog_data_2d (
 CREATE TABLE IF NOT EXISTS katalog_data_3d (
     data_3d_id uuid         PRIMARY KEY,
     author     uuid,
-    nama       varchar(150) NOT NULL,
+    model_name varchar(150) NOT NULL,
     akses      varchar(20)  NOT NULL,
     url        text,
     latitude   double precision,
     longitude  double precision,
-    heading    double precision,
-    pitch      double precision,
-    roll       double precision,
-    scale      double precision,
+    heading    integer,
+    pitch      integer,
+    roll       integer,
+    scale      integer,
     -- Aplikasi tidak pernah mengirim kolom ini saat menyimpan data 3D, jadi
     -- tanpa nilai bawaan setiap penyimpanan gagal dengan "null value in
     -- column tipe_file violates not-null constraint".
@@ -84,7 +87,7 @@ SELECT k.data_2d_id,
        k.wms_url,
        k.wfs_url,
        u.user_id AS author_id,
-       u.nama    AS author_nama,
+       u.name    AS author_nama,
        u.email   AS author_email
 FROM katalog_data_2d k
 LEFT JOIN users u ON u.user_id = k.author;

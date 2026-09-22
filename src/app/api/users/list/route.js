@@ -12,7 +12,7 @@ export async function GET(request) {
         const users = await db.users.findMany({ // ambil data user dari table users
             select: {
                 user_id: true,
-                nama: true,
+                name: true,
                 email: true,
                 role: true,
                 is_active: true,

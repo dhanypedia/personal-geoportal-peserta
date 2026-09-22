@@ -18,16 +18,33 @@ import ExploreIcon from "@mui/icons-material/Explore";
 import LoginIcon from "@mui/icons-material/Login";
 import MapIcon from "@mui/icons-material/Map";
 import HomeIcon from "@mui/icons-material/Home";
+import { CorporateFare } from "@mui/icons-material";
+
+const ROUTES = {
+  home: "/",         
+  peta :"/peta-2d",
+  peta3d: "/peta-3d",
+  login: "/login",
+};
 
 const menuItems = [
-  { label: "Beranda", path: "/", icon: <HomeIcon fontSize="small" /> },
-  { label: "Peta", path: "/web-public/peta", icon: <MapIcon fontSize="small" /> },
+  { label: "Beranda", path: ROUTES.home, exact: true, icon: <HomeIcon fontSize="small" /> },
+  { label: "Peta 2D", path: ROUTES.peta, exact: false, icon: <MapIcon fontSize="small" /> },
+  {label: "Peta 3D", path: ROUTES.peta3d, exact: false, icon: <CorporateFare fontSize="small" /> }
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+
+  // Hilangkan trailing slash agar perbandingan konsisten
+  const current = pathname && pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname;
+
+  const isActive = (item) =>
+    item.exact
+      ? current === item.path
+      : current === item.path || current?.startsWith(item.path + "/");
 
   return (
     <>
@@ -54,7 +71,7 @@ export default function Navbar() {
         {/* Logo */}
         <Box
           sx={{ display: "flex", alignItems: "center", gap: 1.2, cursor: "pointer" }}
-          onClick={() => router.push("/web-public")}
+          onClick={() => router.push(ROUTES.home)}
         >
           <Box
             sx={{
@@ -93,7 +110,7 @@ export default function Navbar() {
         {/* Desktop menu */}
         <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", gap: 0.5 }}>
           {menuItems.map((item) => {
-            const active = pathname === item.path;
+            const active = isActive(item);
 
             return (
               <Button
@@ -124,7 +141,7 @@ export default function Navbar() {
           <Divider orientation="vertical" flexItem sx={{ mx: 1.5, borderColor: "rgba(15,42,36,0.12)" }} />
 
           <Button
-            onClick={() => router.push("/login")}
+            onClick={() => router.push(ROUTES.login)}
             startIcon={<LoginIcon fontSize="small" />}
             sx={{
               px: 2.2,
@@ -151,6 +168,7 @@ export default function Navbar() {
         {/* Mobile menu button */}
         <IconButton
           onClick={() => setOpen(true)}
+          aria-label="Buka menu"
           sx={{
             display: { xs: "flex", md: "none" },
             width: 42,
@@ -170,10 +188,8 @@ export default function Navbar() {
         anchor="right"
         open={open}
         onClose={() => setOpen(false)}
-        slotProps={{
-          paper: {
-            sx: { width: 280, background: "rgba(255,255,255,0.98)", backdropFilter: "blur(16px)" },
-          },
+        PaperProps={{
+          sx: { width: 280, background: "rgba(255,255,255,0.98)", backdropFilter: "blur(16px)" },
         }}
       >
         <Box sx={{ p: 3, display: "flex", alignItems: "center", gap: 1.5 }}>
@@ -194,7 +210,7 @@ export default function Navbar() {
           <Box>
             <Typography sx={{ fontWeight: 800, color: "#0F2A24" }}>Geoportal</Typography>
             <Typography sx={{ fontSize: 11, color: "#64748B" }}>
-              Spatial Information Platform
+              Platform Informasi Spasial
             </Typography>
           </Box>
         </Box>
@@ -203,7 +219,7 @@ export default function Navbar() {
 
         <List sx={{ px: 1.5, pt: 2 }}>
           {menuItems.map((item) => {
-            const active = pathname === item.path;
+            const active = isActive(item);
 
             return (
               <ListItemButton
@@ -236,7 +252,7 @@ export default function Navbar() {
           <ListItemButton
             onClick={() => {
               setOpen(false);
-              router.push("/login");
+              router.push(ROUTES.login);
             }}
             sx={{
               borderRadius: 2,

@@ -28,7 +28,7 @@ export default function Map() {
         addLegend(map);
 
 
-        addKML("/data/latihan.kml").then(function (kmlLayer) {
+        addKML("/portal/data/latihan.kml").then(function (kmlLayer) {
             if (kmlLayer) {
                 layerControl.addOverlay(kmlLayer, "KML Latihan");
             }

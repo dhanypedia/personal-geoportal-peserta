@@ -12,6 +12,7 @@ export async function PATCH(request) {
   const data = await request.json();
   const { user_id, password_lama, password_baru, konfirmasi_password } = data;
 
+  // Validasi field wajib
   if (!user_id || !password_lama || !password_baru || !konfirmasi_password) {
     return NextResponse.json(
       {
@@ -22,10 +23,8 @@ export async function PATCH(request) {
     );
   }
 
-  // Hanya boleh mengganti password sendiri. super_admin dikecualikan agar
-  // akun yang terkunci masih bisa ditolong.
-  const pemanggil = payload.user_id || payload.id;
-  if (payload.role !== "super_admin" && pemanggil !== user_id) {
+  // Hanya boleh ganti password milik sendiri, kecuali super_admin
+  if (payload.role !== "super_admin" && payload.user_id !== user_id) {
     return NextResponse.json(
       { message: "Tidak diizinkan mengganti password user lain" },
       { status: 403 },
@@ -65,6 +64,7 @@ export async function PATCH(request) {
       );
     }
 
+    // Cek password lama cocok
     const isPasswordMatch = bcrypt.compareSync(
       password_lama,
       user.password || "",
@@ -78,22 +78,16 @@ export async function PATCH(request) {
 
     const hashedPassword = bcrypt.hashSync(password_baru, 10);
 
-    // Kolom yang dikembalikan dibatasi supaya hash kata sandi tidak ikut
-    // terkirim ke pemanggil API.
     const updatedUser = await db.users.update({
       where: { user_id },
       data: { password: hashedPassword },
-      select: {
-        user_id: true,
-        nama: true,
-        email: true,
-        role: true,
-        is_active: true,
-      },
     });
 
+    // Jangan kirim balik field password
+    const { password, ...userWithoutPassword } = updatedUser;
+
     return NextResponse.json(
-      { message: "Berhasil mengganti password", data: updatedUser },
+      { message: "Berhasil mengganti password", data: userWithoutPassword },
       { status: 200 },
     );
   } catch (err) {

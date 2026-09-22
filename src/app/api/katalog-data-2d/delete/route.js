@@ -1,25 +1,6 @@
 import { NextResponse } from "next/server";
 import { Pool } from "pg";
-import { db } from "../../../../../lib/db";
-import { requireAuth } from "../../../../../lib/auth/verifyBearerToken";
-
-// Tabel pada berkas ini dibuat memakai tipe GEOMETRY tanpa awalan schema,
-// sehingga schema tempat PostGIS terpasang harus ada di search_path koneksi
-// ini. Tanpa itu, pembuatan tabel gagal dengan
-// "type \"geometry\" does not exist", dan unggahan selalu berakhir 500.
-//
-// PENTING: nilai POSTGIS_SCHEMA harus sama dengan schema tempat PostGIS
-// dipasang. Di Supabase, PostGIS paling aman dipasang di schema public.
-const DB_SCHEMA = (process.env.POSTGIS_SCHEMA || "gis").trim();
-
-// Nama schema disisipkan ke opsi koneksi, dan juga ke dalam SQL pada berkas
-// ini, jadi bentuknya diperiksa lebih dahulu.
-if (!/^[a-z_][a-z0-9_]*$/.test(DB_SCHEMA)) {
-    throw new Error(
-        `POSTGIS_SCHEMA tidak sah: "${DB_SCHEMA}". ` +
-        "Gunakan huruf kecil, angka, dan garis bawah, misalnya gis."
-    );
-}
+import { db } from "../../../../../lib/db"; // Pastikan Prisma Client kamu di-import di sini
 
 const pool = new Pool({
     host: process.env.POSTGIS_HOST,
@@ -27,36 +8,10 @@ const pool = new Pool({
     user: process.env.POSTGIS_USER,
     password: process.env.POSTGIS_PASSWORD,
     database: process.env.POSTGIS_DB,
-    options: `-c search_path=${DB_SCHEMA},public,extensions`,
 });
 
-/**
- * DELETE /api/.../[id]  (atau sesuaikan dengan cara kamu mengambil id)
- * Body / query harus berisi: data_2d_id
- *
- * Urutan operasi (kebalikan dari proses create):
- * 1. Ambil record katalog_data_2d berdasarkan data_2d_id -> dapat layer_name (workspace:tableName)
- * 2. Hapus featureType + layer dari GeoServer
- * 3. DROP TABLE fisik di PostGIS (schema DB_SCHEMA)
- * 4. Hapus record dari katalog_data_2d
- *
- * Catatan penting:
- * - Karena operasi melibatkan 2 sistem berbeda (GeoServer via REST, Postgres via SQL)
- *   yang tidak bisa di-rollback lintas sistem, urutan di atas dipilih supaya:
- *   jika GeoServer gagal dihapus, data di database TIDAK ikut terhapus
- *   (state masih konsisten, bisa di-retry).
- * - Jika GeoServer mengembalikan 404 (resource sudah tidak ada), tetap lanjut
- *   membersihkan DB, supaya "orphan record" tidak nyangkut di katalog.
- */
+const DB_SCHEMA = process.env.POSTGIS_SCHEMA;
 export async function DELETE(request) {
-    // Menghapus katalog berarti menghapus layer dari GeoServer sekaligus
-    // men-DROP tabelnya di PostGIS. Keduanya tidak dapat dibatalkan, jadi
-    // endpoint ini hanya boleh dipakai admin dan super_admin.
-    const { error: authError, status: authStatus } = requireAuth(request, "admin");
-    if (authError) {
-        return NextResponse.json({ error: authError }, { status: authStatus });
-    }
-
     let dataId;
 
     try {

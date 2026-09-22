@@ -28,7 +28,7 @@ export default function Map() {
         addPopup(map);
         addLegend(map);
 
-        addKML("/data/latihan.kml").then(function (kmlLayer) {
+        addKML("/portal/data/latihan.kml").then(function (kmlLayer) {
             if (kmlLayer) {
                 layerControl.addOverlay(kmlLayer, "KML Latihan");
             }
@@ -37,7 +37,7 @@ export default function Map() {
         const wmsLayer = addWMS(map);
         layerControl.addOverlay(wmsLayer, "WMS Permukiman Kumuh DKI");
 
-        addRasterTif("/data/pola_ruang.tif").then(function (rasterLayer) {
+        addRasterTif("/portal/data/pola_ruang.tif").then(function (rasterLayer) {
             if (rasterLayer) {
                 layerControl.addOverlay(rasterLayer, "Raster Pola Ruang");
                 rasterLayer.customBounds = rasterLayer.getBounds();

@@ -9,7 +9,7 @@ export async function GET(request) {
             },
             select: {
                 data_3d_id: true,
-                nama: true,
+                model_name: true,
                 akses: true,
                 url: true,
                 latitude: true,

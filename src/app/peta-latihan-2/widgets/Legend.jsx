@@ -8,21 +8,21 @@ export function addLegend(map) {
     });
 
     legend.onAdd = function () {
-    const div = document.createElement("div");
+        const div = document.createElement("div");
 
         div.style.background = "white";
         div.style.padding = "10px";
         div.style.color = "black";
 
-        div.innerHTML = 
+        div.innerHTML =
             `  <b>Legenda</b><br/>
             <span style="color:red">●</span> Landmark<br/>
             <span style="color:blue">●</span> Fasilitas Umum`;
 
-    return div;
+        return div;
 
     };
 
-legend.addTo(map);
+    legend.addTo(map);
 
 }

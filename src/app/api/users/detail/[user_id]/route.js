@@ -2,18 +2,17 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "../../../../../../lib/auth/verifyBearerToken";
 import { db } from "../../../../../../lib/db";
 
-// Data profil beserta jumlah kontribusi katalog. Hanya pemilik akun yang
-// boleh membukanya, karena itu user_id dibandingkan dengan isi token.
 export async function GET(request, { params }) {
   try {
     const { user_id } = await params;
 
+    // Validasi Token
     const { payload, error, status } = requireAuth(request, "viewer");
     if (error) {
       return NextResponse.json({ message: error }, { status });
     }
 
-    // Token lama hanya memuat klaim "id", token baru memuat keduanya.
+    // Pengecekan akses data diri sendiri (sesuaikan payload field user_id)
     const currentUserId = payload.user_id || payload.id;
     if (user_id !== currentUserId) {
       return NextResponse.json(
@@ -22,11 +21,12 @@ export async function GET(request, { params }) {
       );
     }
 
+    // Fetch data dari database beserta jumlah kontribusi data
     const user = await db.users.findUnique({
       where: { user_id },
       select: {
         user_id: true,
-        nama: true,
+        name: true,
         email: true,
         role: true,
         is_active: true,

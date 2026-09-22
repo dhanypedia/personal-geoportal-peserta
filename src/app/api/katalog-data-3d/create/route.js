@@ -15,17 +15,14 @@ export async function POST(request) {
     try {
         const formData = await request.formData();
         const file = formData.get("file");
-        const nama = formData.get("nama");
+        const model_name = formData.get("model_name");
         const akses = formData.get("akses");
         const latitude = formData.get("latitude");
         const longitude = formData.get("longitude");
-        const heading = formData.get("heading") || 0;
-        const pitch = formData.get("pitch") || 0;
-        const roll = formData.get("roll") || 0;
-        // Nilai bawaan 100 dipakai bila form tidak mengirim scale. Angka itu
-        // sama dengan yang sebelumnya ditulis tetap di halaman pratinjau,
-        // sehingga data lama tetap tampil dengan ukuran yang sama.
-        const scale = formData.get("scale") || 100;
+        const heading = formData.get("heading");
+        const pitch = formData.get("pitch");
+        const roll = formData.get("roll");
+        const scale = formData.get("scale");
 
         if (!file) {
             return NextResponse.json({ message: "File 3D tidak boleh kosong" }, { status: 400 });
@@ -35,23 +32,8 @@ export async function POST(request) {
         const data_3d_id = crypto.randomUUID();
 
         // Dapatkan ekstensi asli dari file
-        const fileExtension = path.extname(file.name).toLowerCase();
-
-        // Hanya dua format ini yang dapat ditampilkan. Berkas lain tersimpan
-        // tetapi tidak akan pernah bisa dibuka, jadi ditolak lebih dahulu.
-        const TIPE_DIDUKUNG = [".glb", ".ply"];
-        if (!TIPE_DIDUKUNG.includes(fileExtension)) {
-            return NextResponse.json(
-                {
-                    message:
-                        `Format ${fileExtension || "(tanpa ekstensi)"} tidak didukung. ` +
-                        "Gunakan .glb untuk model 3D atau .ply untuk Gaussian Splat.",
-                },
-                { status: 400 }
-            );
-        }
-
-        const tipeFile = fileExtension.replace(".", "");
+        const fileExtension = path.extname(file.name); // .glb / .ply — dipakai untuk nama file fisik
+        const tipeFile = fileExtension.replace(".", "").toLowerCase(); // "glb" / "ply" — disimpan ke DB
 
         // Buat nama file berdasarkan UUID semata
         const filename = `${data_3d_id}${fileExtension}`;
@@ -70,13 +52,17 @@ export async function POST(request) {
         // Tulis file ke storage lokal
         await writeFile(filePath, buffer);
 
-        const fileUrl = `${process.env.NEXT_PUBLIC_URL_BASE_PATH}/api/katalog-data-3d/models/${data_3d_id}`;
+        // Alamat disimpan relatif, tanpa domain. Alasannya, alamat aplikasi
+        // berganti dari alamat IP menjadi subdomain pada tahap berikutnya, dan
+        // alamat mutlak yang tersimpan akan menunjuk ke alamat lama. Alamat
+        // relatif dibaca dari domain yang sedang dipakai peramban.
+        const fileUrl = `/portal/api/katalog-data-3d/models/${data_3d_id}`;
 
         // 3. Simpan ke Database Prisma dengan UUID yang sama
         await db.katalog_data_3d.create({
             data: {
                 data_3d_id: data_3d_id,
-                nama: nama,
+                model_name: model_name,
                 akses: akses,
                 url: fileUrl,
                 latitude: parseFloat(latitude),

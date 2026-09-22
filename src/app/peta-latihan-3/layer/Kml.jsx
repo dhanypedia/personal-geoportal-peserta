@@ -1,9 +1,9 @@
 import L from "leaflet";
 import "leaflet-kml";
 
-export function addKML(urlKML) {  
+export function addKML(urlKML) {
 
-    return fetch(urlKML)   
+    return fetch(urlKML)
 
         .then(function (response) {
             if (!response.ok) {
@@ -19,11 +19,11 @@ export function addKML(urlKML) {
             const kmlLayer = new L.KML(kmlDocument);
 
 
-            return kmlLayer;   
+            return kmlLayer;
         })
 
         .catch(function (error) {
             console.log("Gagal memuat file KML:", error);
-            return null;   
+            return null;
         });
 }

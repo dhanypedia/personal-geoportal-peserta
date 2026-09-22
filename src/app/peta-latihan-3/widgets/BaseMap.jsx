@@ -1,19 +1,19 @@
 import L from 'leaflet';
 
-export default function addLayerBasemap(map, overlayMaps = {}) { 
+export default function addLayerBasemap(map, overlayMaps = {}) {
 
     const osm = L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        { 
-            attribution: "OpenStreetMap" 
+        {
+            attribution: "OpenStreetMap"
         }
     );
 
     const satelit = L.tileLayer(
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        { 
+        {
             attribution: "Esri"
-         }
+        }
     );
 
     osm.addTo(map);
@@ -25,5 +25,5 @@ export default function addLayerBasemap(map, overlayMaps = {}) {
 
     const layerControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-    return layerControl;  
+    return layerControl;
 }

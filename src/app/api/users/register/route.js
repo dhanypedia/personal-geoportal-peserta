@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../../../lib/db";
 import bcrypt from "bcryptjs";
-import { ROLE_BAWAAN } from "../../../../../lib/auth/roles";
 
 export async function POST(request) {
     try {
         const data = await request.json();
 
         // 1. Validasi sederhana input data
-        if (!data.email || !data.password || !data.nama) {
+        if (!data.email || !data.password || !data.name) {
             return NextResponse.json(
-                { message: "Nama, email, dan password wajib diisi!" },
+                { message: "Name, email, dan password wajib diisi!" },
                 { status: 400 }
             );
         }
@@ -37,12 +36,10 @@ export async function POST(request) {
         const registerUser = await db.users.create({
             data: {
                 user_id: user_id,
-                nama: data.nama,
+                name: data.name,
                 email: data.email,
                 password: hashedPassword,
-                // Peran tidak diambil dari input, sehingga pendaftaran mandiri
-                // tidak dapat meminta peran yang lebih tinggi.
-                role: ROLE_BAWAAN,
+                role: "viewer", // Peran bawaan untuk pendaftar baru
                 is_active: false, // Default status non-aktif
             },
         });

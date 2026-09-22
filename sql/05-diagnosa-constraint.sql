@@ -71,7 +71,7 @@ LEFT JOIN users u ON u.user_id = k.author
 WHERE k.author IS NOT NULL AND u.user_id IS NULL;
 
 SELECT '7b. Author tanpa baris induk di 3D (harus kosong)' AS bagian;
-SELECT k.data_3d_id, k.nama, k.author
+SELECT k.data_3d_id, k.model_name, k.author
 FROM katalog_data_3d k
 LEFT JOIN users u ON u.user_id = k.author
 WHERE k.author IS NOT NULL AND u.user_id IS NULL;
@@ -92,7 +92,7 @@ UNION ALL SELECT 'katalog_data_3d', count(*) FROM katalog_data_3d;
 -- 10. Apakah penulis yang dipakai CSV sudah ada? Kedua UUID ini adalah nilai author pada
 -- berkas CSV; bila salah satu belum ada, import CSV gagal karena foreign key.
 SELECT '10. Penulis yang dipakai CSV (harus 2 baris)' AS bagian;
-SELECT user_id, nama, email, is_active FROM users
+SELECT user_id, name, email, is_active FROM users
 WHERE user_id IN ('ae5c7b2e-3537-4e94-ae1c-7596f1185f28',
                   'bc810d85-589d-4160-a9db-3c5516fa675a');
 

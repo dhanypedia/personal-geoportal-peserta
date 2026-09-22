@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Box, Typography } from "@mui/material";
-import { useSession } from "next-auth/react";
+import { Box, IconButton, Typography } from "@mui/material";
+import { Close } from "@mui/icons-material";
 
 const CESIUM_VERSION = "1.120";
 const CESIUM_BASE_URL = `https://cesium.com/downloads/cesiumjs/releases/${CESIUM_VERSION}/Build/Cesium/`;
@@ -36,12 +36,11 @@ function loadCesiumCDN(onSuccess, onError) {
     }
 }
 
-export default function PreviewCesiumModal({ openPreview, item }) {
+export default function PreviewCesiumModal({ openPreview, item, handleClosePreview, accessToken }) {
     const containerRef = useRef(null);
     const viewerRef = useRef(null);
     const [status, setStatus] = useState("idle");
     const [errorMessage, setErrorMessage] = useState("");
-    const session = useSession();
 
     useEffect(() => {
         if (!openPreview) return;
@@ -68,7 +67,12 @@ export default function PreviewCesiumModal({ openPreview, item }) {
         const lat = Number(item.latitude);
         const lon = Number(item.longitude);
 
-        if (!item.url || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+        // Fallback ke 0 kalau heading/pitch/roll tidak ada / bukan angka valid
+        const headingDeg = Number.isFinite(Number(item.heading)) ? Number(item.heading) : 0;
+        const pitchDeg = Number.isFinite(Number(item.pitch)) ? Number(item.pitch) : 0;
+        const rollDeg = Number.isFinite(Number(item.roll)) ? Number(item.roll) : 0;
+
+        if (!item.data_3d_id || !Number.isFinite(lat) || !Number.isFinite(lon)) {
             setErrorMessage("URL file GLB atau koordinat tidak valid.");
             setStatus("error");
             return;
@@ -97,46 +101,32 @@ export default function PreviewCesiumModal({ openPreview, item }) {
                 new Cesium.UrlTemplateImageryProvider({
                     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                     subdomains: ["a", "b", "c"],
-                    // OpenStreetMap berhenti di level 19. Tanpa batas ini, Cesium meminta
-                    // level 20 ke atas saat kamera mendekat, dan OSM menjawab HTTP 400.
-                    // Balasan 400 tidak memuat header CORS, sehingga browser melaporkannya
-                    // sebagai galat CORS, bukan sebagai galat 400.
-                    maximumLevel: 19,
                     credit: "© OpenStreetMap contributors",
+                    maximumLevel: 19, // OSM tile server tidak menyediakan tile di atas level 19
                 })
             );
 
-            // 4. Tambahkan Model 3D
+            // 4. Hitung posisi dan orientasi (heading/pitch/roll) model
             const position = Cesium.Cartesian3.fromDegrees(lon, lat, 0);
 
-            // Ukuran diambil dari nilai yang tersimpan bersama data. Nilai
-            // 100 hanya dipakai sebagai cadangan untuk data lama yang belum
-            // punya nilai scale.
-            const skalaModel = Number(item.scale) > 0 ? Number(item.scale) : 100;
+            const heading = Cesium.Math.toRadians(headingDeg);
+            const pitch = Cesium.Math.toRadians(pitchDeg);
+            const roll = Cesium.Math.toRadians(rollDeg);
+            const hpr = new Cesium.HeadingPitchRoll(heading, pitch, roll);
 
-            // Arah dan kemiringan juga diambil dari data tersimpan, dengan
-            // nilai bawaan 0. Sebelumnya ketiganya tidak dipakai di sini,
-            // sehingga isian Arah pada form tidak berpengaruh apa pun pada
-            // model yang ditampilkan.
-            const headingModel = Number(item.heading) || 0;
-            const pitchModel = Number(item.pitch) || 0;
-            const rollModel = Number(item.roll) || 0;
+            // orientation harus berupa CallbackProperty/Quaternion agar konsisten
+            // dengan posisi yang bisa clamp ke tanah (ellipsoid sistem lokal)
+            const orientation = new Cesium.CallbackProperty(() => {
+                return Cesium.Transforms.headingPitchRollQuaternion(position, hpr);
+            }, false);
 
-            const orientasiModel = Cesium.Transforms.headingPitchRollQuaternion(
-                position,
-                new Cesium.HeadingPitchRoll(
-                    Cesium.Math.toRadians(headingModel),
-                    Cesium.Math.toRadians(pitchModel),
-                    Cesium.Math.toRadians(rollModel)
-                )
-            );
-
+            // 5. Tambahkan Model 3D dengan orientasi
             const modelEntity = viewer.entities.add({
                 position,
-                orientation: orientasiModel,
+                orientation,
                 model: {
-                    uri: `${item.url}?access_token=${session?.data?.accessToken}`,
-                    scale: skalaModel,
+                    uri: `/portal/api/katalog-data-3d/models/${item.data_3d_id}?access_token=${accessToken}`,
+                    scale: item.scale,
                     heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
                 },
             });
@@ -164,33 +154,58 @@ export default function PreviewCesiumModal({ openPreview, item }) {
     return (
         <Box
             sx={{
-                width: "100%",
-                height: "500px",
-                bgcolor: "#1E1E2D",
-                borderRadius: 2,
-                overflow: "hidden",
-                position: "relative",
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-            }}
-        >
-            {status === "memuat" && <Typography sx={{ color: "#fff" }}>Memuat Peta 3D...</Typography>}
-
-            {status === "error" && (
-                <Typography sx={{ color: "#ef4444", p: 2, textAlign: "center" }}>
-                    {errorMessage || "Terjadi kesalahan saat memuat 3D."}
+                flexDirection: "column",
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: { xs: "90%", sm: 600, md: 700 },
+                bgcolor: "#fff",
+                color: "#1E1E2D",
+                borderRadius: 3,
+                boxShadow: 24,
+                p: 3,
+                outline: "none",
+            }}>
+            <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginBottom: 3 }}>
+                <Typography id="modal-tambah-data-3d" variant="h6" sx={{ fontWeight: 700, color: "#1E1E2D" }}>
+                    {item?.model_name}
                 </Typography>
-            )}
-
+                <IconButton onClick={handleClosePreview} size="small" sx={{ color: "#6B7280" }}>
+                    <Close />
+                </IconButton>
+            </Box>
             <Box
-                ref={containerRef}
                 sx={{
                     width: "100%",
-                    height: "100%",
-                    visibility: status === "siap" ? "visible" : "hidden",
+                    height: "500px",
+                    bgcolor: "#1E1E2D",
+                    borderRadius: 2,
+                    overflow: "hidden",
+                    position: "relative",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                 }}
-            />
+            >
+                {status === "memuat" && <Typography sx={{ color: "#fff" }}>Memuat Peta 3D...</Typography>}
+
+                {status === "error" && (
+                    <Typography sx={{ color: "#ef4444", p: 2, textAlign: "center" }}>
+                        {errorMessage || "Terjadi kesalahan saat memuat 3D."}
+                    </Typography>
+                )}
+
+                <Box
+                    ref={containerRef}
+                    sx={{
+                        width: "100%",
+                        height: "100%",
+                        visibility: status === "siap" ? "visible" : "hidden",
+                    }}
+                />
+            </Box>
         </Box>
     );
 }
