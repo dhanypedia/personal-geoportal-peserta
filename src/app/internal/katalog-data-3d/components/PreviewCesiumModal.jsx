@@ -102,7 +102,7 @@ export default function PreviewCesiumModal({ openPreview, item }) {
                     // Balasan 400 tidak memuat header CORS, sehingga browser melaporkannya
                     // sebagai galat CORS, bukan sebagai galat 400.
                     maximumLevel: 19,
-credit: "© OpenStreetMap contributors",
+                    credit: "© OpenStreetMap contributors",
                 })
             );
 

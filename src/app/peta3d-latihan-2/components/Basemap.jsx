@@ -11,7 +11,7 @@ export default function addLayerBasemap(viewer) {
       // Balasan 400 tidak memuat header CORS, sehingga browser melaporkannya
       // sebagai galat CORS, bukan sebagai galat 400.
       maximumLevel: 19,
-credit: '© OpenStreetMap contributors',
+      credit: '© OpenStreetMap contributors',
     }),
     'Citra Satelit': new Cesium.UrlTemplateImageryProvider({
       url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
