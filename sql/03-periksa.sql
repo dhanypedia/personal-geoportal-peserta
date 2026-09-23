@@ -63,30 +63,73 @@ WHERE table_schema = 'public'
   )
 ORDER BY table_name, column_name;
 
--- 4. Constraint yang seharusnya ada tetapi belum terpasang. Bagian ini yang paling
--- berguna: langsung menyebut nama constraint yang hilang.
-SELECT '4. Constraint yang hilang' AS bagian;
-WITH seharusnya(tabel, nama) AS (
+-- 4. Constraint yang seharusnya ada tetapi belum terpasang, atau terpasang dengan
+-- jenis yang salah. Daftar di bawah memuat SELURUH constraint yang dibuat
+-- 01-schema.sql, yaitu tiga belas buah: users tiga, katalog_data_2d empat,
+-- katalog_data_3d enam. Jenisnya ikut diperiksa, sehingga constraint yang namanya
+-- benar tetapi jenisnya salah juga ikut ketahuan.
+-- Harapan: hasilnya kosong.
+SELECT '4. Constraint yang hilang atau salah jenis (harus kosong)' AS bagian;
+WITH seharusnya(tabel, nama, kode) AS (
     VALUES
-      ('users', 'users_pkey'),
-      ('users', 'users_email_key'),
-      ('users', 'users_role_valid'),
-      ('katalog_data_2d', 'katalog_data_2d_pkey'),
-      ('katalog_data_2d', 'katalog_data_2d_author_fkey'),
-      ('katalog_data_2d', 'katalog_data_2d_akses_valid'),
-      ('katalog_data_3d', 'katalog_data_3d_pkey'),
-      ('katalog_data_3d', 'katalog_data_3d_author_fkey'),
-      ('katalog_data_3d', 'katalog_data_3d_akses_valid')
-)
-SELECT s.tabel, s.nama AS nama_constraint_hilang
-FROM seharusnya s
-WHERE NOT EXISTS (
-    SELECT 1 FROM pg_constraint con
+      ('users', 'users_pkey', 'p'),
+      ('users', 'users_email_key', 'u'),
+      ('users', 'users_role_valid', 'c'),
+      ('katalog_data_2d', 'katalog_data_2d_pkey', 'p'),
+      ('katalog_data_2d', 'katalog_data_2d_layer_name_key', 'u'),
+      ('katalog_data_2d', 'katalog_data_2d_akses_valid', 'c'),
+      ('katalog_data_2d', 'katalog_data_2d_author_fkey', 'f'),
+      ('katalog_data_3d', 'katalog_data_3d_pkey', 'p'),
+      ('katalog_data_3d', 'katalog_data_3d_akses_valid', 'c'),
+      ('katalog_data_3d', 'katalog_data_3d_tipe_file_valid', 'c'),
+      ('katalog_data_3d', 'katalog_data_3d_lat_range', 'c'),
+      ('katalog_data_3d', 'katalog_data_3d_lon_range', 'c'),
+      ('katalog_data_3d', 'katalog_data_3d_author_fkey', 'f')
+),
+ada AS (
+    -- contype bertipe internal "char", bukan text, sehingga perlu dicor sebelum
+    -- digabungkan dengan teks. Tanpa cor, PostgreSQL menolaknya dengan
+    -- "operator is not unique: unknown || char".
+    SELECT c.relname AS tabel, con.conname AS nama, con.contype::text AS kode
+    FROM pg_constraint con
     JOIN pg_class c     ON c.oid = con.conrelid
     JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = 'public' AND c.relname = s.tabel AND con.conname = s.nama
+    WHERE n.nspname = 'public'
+      AND c.relname IN ('users', 'katalog_data_2d', 'katalog_data_3d')
 )
+SELECT s.tabel,
+       s.nama AS nama_constraint,
+       CASE WHEN a.nama IS NULL
+            THEN 'BELUM TERPASANG'
+            ELSE 'terpasang, tetapi jenisnya ' || a.kode || ' dan seharusnya ' || s.kode
+       END AS keadaan
+FROM seharusnya s
+LEFT JOIN ada a ON a.tabel = s.tabel AND a.nama = s.nama
+WHERE a.nama IS NULL OR a.kode <> s.kode
 ORDER BY s.tabel, s.nama;
 
--- Bila bagian 4 berisi baris, jalankan sql/01-schema.sql: berkas itu aman
--- dijalankan berulang dan hanya menambahkan yang belum ada.
+-- 5. Kesimpulan dalam satu baris, supaya tidak perlu menafsirkan hasil bagian 4
+-- yang kosong. Harapan: terpasang 13, hilang 0, dan kesimpulannya LENGKAP.
+-- Jenis yang dihitung hanya p, u, f, dan c, supaya batasan NOT NULL yang ikut
+-- tercatat di PostgreSQL 18 ke atas tidak mengubah angkanya.
+SELECT '5. Kesimpulan' AS bagian;
+WITH jumlah AS (
+    SELECT count(*) AS terpasang
+    FROM pg_constraint con
+    JOIN pg_class c     ON c.oid = con.conrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname IN ('users', 'katalog_data_2d', 'katalog_data_3d')
+      AND con.contype IN ('p', 'u', 'f', 'c')
+)
+SELECT terpasang,
+       13 - terpasang AS hilang,
+       13 AS seharusnya,
+       CASE WHEN terpasang = 13
+            THEN 'LENGKAP, tidak ada constraint yang hilang'
+            ELSE 'ADA YANG HILANG, jalankan sql/01-schema.sql lalu periksa bagian 4'
+       END AS kesimpulan
+FROM jumlah;
+
+-- Ketiga belas constraint itu berasal dari 01-schema.sql. Bila bagian 4 berisi
+-- baris, jalankan berkas itu: aman diulang dan hanya menambahkan yang belum ada.
