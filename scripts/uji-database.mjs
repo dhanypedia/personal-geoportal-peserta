@@ -46,10 +46,29 @@ const EMAIL_UJI = 'uji-database@contoh.local';
 const SANDI_UJI = 'KataSandiUji123';
 const LAYER_UJI = 'geoportal:uji_database';
 
+// Dua akun di bawah dipakai menguji constraint. Keduanya ikut dibersihkan,
+// karena bila constraint-nya belum terpasang, insert-nya justru berhasil dan
+// barisnya tertinggal. Baris sisa itu bukan sekadar kotor: ia membuat
+// pengujian berikutnya gagal oleh UNIQUE, sehingga lulus tanpa membuktikan
+// apa pun, dan ia menghalangi ALTER TABLE ... ADD CONSTRAINT saat peserta
+// mencoba memasang constraint yang hilang.
+const EMAIL_PERAN_UJI = 'peran@contoh.local';
+const EMAIL_EDITOR_UJI = 'editor@contoh.local';
+
 async function bersihkan() {
-  await db.katalog_data_3d.deleteMany({ where: { nama: 'Uji Database' } });
+  await db.katalog_data_3d.deleteMany({ where: { model_name: 'Uji Database' } });
   await db.katalog_data_2d.deleteMany({ where: { layer_name: LAYER_UJI } });
-  await db.users.deleteMany({ where: { email: EMAIL_UJI } });
+  await db.users.deleteMany({
+    where: { email: { in: [EMAIL_UJI, EMAIL_PERAN_UJI, EMAIL_EDITOR_UJI] } },
+  });
+}
+
+// Pengujian constraint harus gagal karena constraint-nya, bukan karena sebab
+// lain. Tanpa pemeriksaan ini, kesalahan apa pun dianggap bukti bahwa
+// constraint bekerja.
+function ditolakOleh(e, penanda) {
+  const pesan = String(e?.message ?? '');
+  return pesan.includes(penanda) || e?.code === 'P2002';
 }
 
 // ---------------------------------------------------------------------
@@ -79,7 +98,7 @@ const userId = crypto.randomUUID();
 await db.users.create({
   data: {
     user_id: userId,
-    nama: 'Uji Database',
+    name: 'Uji Database',
     email: EMAIL_UJI,
     password: await bcrypt.hash(SANDI_UJI, 10),
     role: 'viewer',
@@ -137,7 +156,7 @@ const id3d = crypto.randomUUID();
 await db.katalog_data_3d.create({
   data: {
     data_3d_id: id3d,
-    nama: 'Uji Database',
+    model_name: 'Uji Database',
     akses: 'public',
     url: `http://localhost:3000/portal/api/katalog-data-3d/models/${id3d}`,
     latitude: -6.175,
@@ -180,13 +199,18 @@ catat('menyimpan katalog 2D', true, 'author terhubung ke users');
 try {
   await db.users.create({
     data: {
-      user_id: crypto.randomUUID(), nama: 'Uji', email: 'peran@contoh.local',
+      user_id: crypto.randomUUID(), name: 'Uji', email: EMAIL_PERAN_UJI,
       password: 'x', role: 'raja', is_active: true,
     },
   });
   catat('role tidak sah ditolak', false, 'seharusnya ditolak database');
-} catch {
-  catat('role tidak sah ditolak', true, 'CHECK users_role_valid bekerja');
+} catch (e) {
+  const benar = ditolakOleh(e, 'users_role_valid');
+  catat(
+    'role tidak sah ditolak',
+    benar,
+    benar ? 'CHECK users_role_valid bekerja' : `ditolak karena sebab lain: ${String(e.message).split('\n')[0]}`
+  );
 }
 
 // "editor" pernah dipakai keliru sebagai peran bawaan untuk pengguna baru.
@@ -196,25 +220,35 @@ try {
 try {
   await db.users.create({
     data: {
-      user_id: crypto.randomUUID(), nama: 'Uji', email: 'editor@contoh.local',
+      user_id: crypto.randomUUID(), name: 'Uji', email: EMAIL_EDITOR_UJI,
       password: 'x', role: 'editor', is_active: true,
     },
   });
   catat('role editor ditolak', false, 'peran editor masih diterima database');
-} catch {
-  catat('role editor ditolak', true, 'peran editor tidak lagi dikenal');
+} catch (e) {
+  const benar = ditolakOleh(e, 'users_role_valid');
+  catat(
+    'role editor ditolak',
+    benar,
+    benar ? 'peran editor tidak lagi dikenal' : `ditolak karena sebab lain: ${String(e.message).split('\n')[0]}`
+  );
 }
 
 try {
   await db.users.create({
     data: {
-      user_id: crypto.randomUUID(), nama: 'Uji', email: EMAIL_UJI,
+      user_id: crypto.randomUUID(), name: 'Uji', email: EMAIL_UJI,
       password: 'x', role: 'viewer', is_active: true,
     },
   });
   catat('email ganda ditolak', false, 'seharusnya ditolak database');
-} catch {
-  catat('email ganda ditolak', true, 'UNIQUE users_email_key bekerja');
+} catch (e) {
+  const benar = ditolakOleh(e, 'users_email_key');
+  catat(
+    'email ganda ditolak',
+    benar,
+    benar ? 'UNIQUE users_email_key bekerja' : `ditolak karena sebab lain: ${String(e.message).split('\n')[0]}`
+  );
 }
 
 await bersihkan();
